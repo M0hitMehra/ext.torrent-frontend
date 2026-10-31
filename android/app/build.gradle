@@ -200,8 +200,6 @@ if (rnVersion < versionToNumber(0, 75, 0)) {
     applyNativeModulesAppBuildGradle(project)
 }
 
-tasks.whenTaskAdded { task ->
-    if (task.name.startsWith("check") && task.name.endsWith("AarMetadata")) {
-        task.enabled = false
-    }
+tasks.matching { it.name.contains("AarMetadata") }.configureEach {
+    enabled = false
 }

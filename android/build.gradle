@@ -41,17 +41,7 @@ allprojects {
 }
 
 subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            project.android {
-                compileSdkVersion 35
-                buildToolsVersion "35.0.0"
-            }
-        }
-    }
-    tasks.whenTaskAdded { task ->
-        if (task.name.startsWith("check") && task.name.endsWith("AarMetadata")) {
-            task.enabled = false
-        }
+    tasks.matching { it.name.contains("AarMetadata") }.configureEach {
+        enabled = false
     }
 }
