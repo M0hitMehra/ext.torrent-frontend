@@ -4,7 +4,7 @@ import {
   Modal, Platform, Animated, Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS } from '../../constants';
+import { COLORS } from '../constants';
 
 const { width: W } = Dimensions.get('window');
 const isTV = Platform.isTV;

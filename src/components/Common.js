@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS } from '../../constants';
+import { COLORS } from '../constants';
 
 export function LoadingSpinner({ message = 'Loading...' }) {
   return (

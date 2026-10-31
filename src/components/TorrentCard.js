@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, TVFocusGuideView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS } from '../../constants';
-import { useTVFocus } from '../../hooks';
+import { COLORS } from '../constants';
+import { useTVFocus } from '../hooks';
 
 const isTV = Platform.isTV;
 
