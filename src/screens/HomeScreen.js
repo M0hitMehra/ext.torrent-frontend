@@ -1,10 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+/**
+ * HomeScreen.js
+ * Neumorphic dark dashboard with trending, latest, and category explorer.
+ * TV D-pad focus compatible with YouTube-TV keyboard.
+ */
+
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, Platform,
-  TouchableOpacity, TextInput, StatusBar, ScrollView,
+  TouchableOpacity, StatusBar, ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS, CATEGORIES, SORT_OPTIONS } from '../constants';
+import { COLORS, CATEGORIES, NEU_STYLES } from '../constants';
 import { getTrending, getLatest } from '../api/torrentApi';
 import { TorrentCard } from '../components/TorrentCard';
 import { TVKeyboard } from '../components/TVKeyboard';
@@ -45,25 +51,31 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
-      {/* Header */}
+      {/* ─── NEUMORPHIC TOP BAR ─── */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <MaterialIcons name="local-movies" size={28} color={COLORS.primary} />
-          <Text style={styles.appTitle}>ExtTorrent</Text>
+          <View style={styles.logoCircle}>
+            <MaterialIcons name="local-movies" size={24} color={COLORS.primaryGlow} />
+          </View>
+          <View>
+            <Text style={styles.appTitle}>ExtTorrent</Text>
+            <Text style={styles.appSub}>Stream & Explore</Text>
+          </View>
         </View>
+
         <TouchableOpacity
-          style={styles.searchBtn}
+          style={styles.searchBarBtn}
+          activeOpacity={0.8}
           onPress={() => isTV ? setKeyboardVisible(true) : navigation.navigate('Search', {})}
-          onFocus={() => {}}
         >
-          <MaterialIcons name="search" size={22} color={COLORS.text} />
-          <Text style={styles.searchBtnText}>Search torrents...</Text>
+          <MaterialIcons name="search" size={20} color={COLORS.primaryGlow} />
+          <Text style={styles.searchBtnText}>Search movies, series...</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Categories */}
-        <SectionHeader title="Categories" icon="category" />
+        {/* Categories Section */}
+        <SectionHeader title="Browse Categories" icon="grid-view" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catRow}>
           {CATEGORIES.map((cat) => (
             <CategoryChip
@@ -76,9 +88,9 @@ export default function HomeScreen({ navigation }) {
           ))}
         </ScrollView>
 
-        {/* Trending */}
+        {/* Trending Torrents */}
         <SectionHeader
-          title="🔥 Trending"
+          title="🔥 Trending Now"
           icon="trending-up"
           onSeeAll={() => navigation.navigate('Browse', { category: selectedCategory, tab: 'trending' })}
         />
@@ -94,27 +106,30 @@ export default function HomeScreen({ navigation }) {
               <TorrentCard torrent={item} onPress={handleTorrentPress} />
             )}
             scrollEnabled={false}
-            ListEmptyComponent={<Text style={styles.empty}>No trending data yet. Backend may be waking up.</Text>}
+            ListEmptyComponent={
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>Loading torrents from indexer...</Text>
+              </View>
+            }
           />
         )}
 
-        {/* Latest */}
+        {/* Latest Releases */}
         <SectionHeader
-          title="🆕 Latest"
+          title="⚡ Latest Uploads"
           icon="new-releases"
           onSeeAll={() => navigation.navigate('Browse', { tab: 'latest' })}
         />
         {latestLoading ? (
-          <LoadingSpinner message="Loading latest..." />
+          <LoadingSpinner message="Loading latest torrents..." />
         ) : (
           <FlatList
-            data={latestData?.torrents?.slice(0, 6) || []}
+            data={latestData?.torrents?.slice(0, 8) || []}
             keyExtractor={(item, i) => item.id || String(i)}
             renderItem={({ item }) => (
               <TorrentCard torrent={item} onPress={handleTorrentPress} />
             )}
             scrollEnabled={false}
-            ListEmptyComponent={<Text style={styles.empty}>No data yet.</Text>}
           />
         )}
       </ScrollView>
@@ -133,15 +148,25 @@ function CategoryChip({ cat, selected, onPress, onLongPress }) {
   const [focused, setFocused] = useState(false);
   return (
     <TouchableOpacity
-      style={[styles.catChip, selected && styles.catChipSelected, focused && styles.catChipFocused]}
+      style={[
+        styles.catChip,
+        selected && styles.catChipSelected,
+        focused && styles.catChipFocused,
+      ]}
       onPress={onPress}
       onLongPress={onLongPress}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       activeOpacity={0.8}
     >
-      <MaterialIcons name={cat.icon} size={16} color={selected ? '#fff' : COLORS.textSub} />
-      <Text style={[styles.catLabel, selected && styles.catLabelSelected]}>{cat.label}</Text>
+      <MaterialIcons
+        name={cat.icon}
+        size={15}
+        color={selected ? '#fff' : focused ? COLORS.primaryGlow : COLORS.textSub}
+      />
+      <Text style={[styles.catLabel, selected && styles.catLabelSelected]}>
+        {cat.label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -154,44 +179,82 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? 44 : 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderColor: COLORS.border,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  appTitle: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
-  searchBtn: {
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logoCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
+  },
+  appTitle: { color: COLORS.text, fontSize: 18, fontWeight: '900' },
+  appSub: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600', marginTop: 1 },
+  searchBarBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    marginLeft: 16,
+    backgroundColor: COLORS.input,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginLeft: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderTopColor: COLORS.cardShadow,
+    borderLeftColor: COLORS.cardShadow,
+    borderBottomColor: COLORS.cardHighlight,
+    borderRightColor: COLORS.cardHighlight,
   },
-  searchBtnText: { color: COLORS.textMuted, fontSize: 14 },
-  scroll: { padding: 16, paddingBottom: 40 },
-  catRow: { marginBottom: 20, marginHorizontal: -4 },
+  searchBtnText: { color: COLORS.textMuted, fontSize: 13 },
+  scroll: { padding: 16, paddingBottom: 50 },
+  catRow: { marginBottom: 18, marginHorizontal: -4 },
   catChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: COLORS.card,
-    borderRadius: 20,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 9,
     marginHorizontal: 4,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
   },
-  catChipSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  catChipFocused: { borderColor: COLORS.tvFocus, borderWidth: 2, transform: [{ scale: 1.06 }] },
-  catLabel: { color: COLORS.textSub, fontSize: 13, fontWeight: '600' },
+  catChipSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  catChipFocused: {
+    borderColor: COLORS.tvFocus,
+    borderWidth: 2,
+    transform: [{ scale: 1.05 }],
+  },
+  catLabel: { color: COLORS.textSub, fontSize: 12, fontWeight: '700' },
   catLabelSelected: { color: '#fff' },
-  empty: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 16 },
+  emptyCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: { color: COLORS.textMuted, fontSize: 13 },
 });

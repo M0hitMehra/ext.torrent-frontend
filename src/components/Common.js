@@ -1,3 +1,8 @@
+/**
+ * Common.js
+ * Neumorphic UI helpers (SectionHeader, LoadingSpinner, ErrorView, EmptyView).
+ */
+
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -6,7 +11,9 @@ import { COLORS } from '../constants';
 export function LoadingSpinner({ message = 'Loading...' }) {
   return (
     <View style={styles.center}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={styles.loaderCircle}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
       <Text style={styles.message}>{message}</Text>
     </View>
   );
@@ -15,8 +22,10 @@ export function LoadingSpinner({ message = 'Loading...' }) {
 export function ErrorView({ message, onRetry }) {
   return (
     <View style={styles.center}>
-      <MaterialIcons name="error-outline" size={48} color={COLORS.accent} />
-      <Text style={styles.errorTitle}>Something went wrong</Text>
+      <View style={[styles.loaderCircle, styles.errorCircle]}>
+        <MaterialIcons name="error-outline" size={36} color={COLORS.accent} />
+      </View>
+      <Text style={styles.errorTitle}>Connection Problem</Text>
       <Text style={styles.errorMessage}>{message}</Text>
       {onRetry && (
         <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
@@ -31,7 +40,9 @@ export function ErrorView({ message, onRetry }) {
 export function EmptyView({ message = 'No results found', icon = 'search-off' }) {
   return (
     <View style={styles.center}>
-      <MaterialIcons name={icon} size={48} color={COLORS.textMuted} />
+      <View style={styles.loaderCircle}>
+        <MaterialIcons name={icon} size={36} color={COLORS.textMuted} />
+      </View>
       <Text style={styles.emptyText}>{message}</Text>
     </View>
   );
@@ -41,13 +52,13 @@ export function SectionHeader({ title, icon, onSeeAll }) {
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionLeft}>
-        {icon && <MaterialIcons name={icon} size={18} color={COLORS.primary} />}
+        {icon && <MaterialIcons name={icon} size={18} color={COLORS.primaryGlow} />}
         <Text style={styles.sectionTitle}>{title}</Text>
       </View>
       {onSeeAll && (
         <TouchableOpacity onPress={onSeeAll} style={styles.seeAll}>
           <Text style={styles.seeAllText}>See All</Text>
-          <MaterialIcons name="chevron-right" size={16} color={COLORS.primary} />
+          <MaterialIcons name="chevron-right" size={16} color={COLORS.primaryGlow} />
         </TouchableOpacity>
       )}
     </View>
@@ -56,28 +67,42 @@ export function SectionHeader({ title, icon, onSeeAll }) {
 
 const styles = StyleSheet.create({
   center: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
     gap: 12,
   },
+  loaderCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    backgroundColor: COLORS.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
+  },
+  errorCircle: {
+    borderColor: COLORS.accent + '44',
+  },
   message: {
     color: COLORS.textSub,
-    fontSize: 14,
-    marginTop: 8,
+    fontSize: 13,
+    fontWeight: '600',
   },
   errorTitle: {
     color: COLORS.text,
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 8,
+    fontSize: 17,
+    fontWeight: '800',
   },
   errorMessage: {
-    color: COLORS.textSub,
-    fontSize: 13,
+    color: COLORS.textMuted,
+    fontSize: 12,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   retryBtn: {
     flexDirection: 'row',
@@ -86,36 +111,33 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 8,
+    borderRadius: 14,
+    marginTop: 4,
   },
-  retryText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  retryText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   emptyText: {
     color: COLORS.textMuted,
-    fontSize: 15,
+    fontSize: 14,
     textAlign: 'center',
-    marginTop: 8,
+    fontWeight: '600',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
-    marginTop: 4,
+    marginTop: 8,
   },
   sectionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   sectionTitle: {
     color: COLORS.text,
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   seeAll: {
     flexDirection: 'row',
@@ -123,8 +145,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   seeAllText: {
-    color: COLORS.primary,
-    fontSize: 13,
-    fontWeight: '600',
+    color: COLORS.primaryGlow,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

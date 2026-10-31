@@ -1,3 +1,8 @@
+/**
+ * BrowseScreen.js
+ * Neumorphic category and tab browser (Browse / Trending / Latest).
+ */
+
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, FlatList, StyleSheet, Platform,
@@ -7,7 +12,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, CATEGORIES, SORT_OPTIONS } from '../constants';
 import { browseTorrents, getTrending, getLatest } from '../api/torrentApi';
 import { TorrentCard } from '../components/TorrentCard';
-import { LoadingSpinner, ErrorView, EmptyView, SectionHeader } from '../components/Common';
+import { LoadingSpinner, ErrorView, EmptyView } from '../components/Common';
 
 const isTV = Platform.isTV;
 const TABS = ['Browse', 'Trending', 'Latest'];
@@ -46,36 +51,41 @@ export default function BrowseScreen({ navigation, route }) {
     }
   }, []);
 
-  useEffect(() => { fetchData(tab, category, 1, sort, false); }, [tab, category, sort]);
+  useEffect(() => {
+    fetchData(tab, category, 1, sort, false);
+  }, [tab, category, sort, fetchData]);
 
   const loadMore = () => {
-    if (!loading && page < totalPages) fetchData(tab, category, page + 1, sort, true);
+    if (!loading && page < totalPages) {
+      fetchData(tab, category, page + 1, sort, true);
+    }
   };
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.text} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <MaterialIcons name="arrow-back" size={22} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Browse</Text>
+        <Text style={styles.headerTitle}>Explore Torrents</Text>
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabRow}>
+      {/* Neumorphic Segmented Tab Switcher */}
+      <View style={styles.tabContainer}>
         {TABS.map((t, i) => (
           <TouchableOpacity
             key={t}
-            style={[styles.tab, tab === i && styles.tabActive]}
+            style={[styles.tabBtn, tab === i && styles.tabBtnActive]}
             onPress={() => { setTab(i); setData([]); setPage(1); }}
+            activeOpacity={0.8}
           >
             <Text style={[styles.tabText, tab === i && styles.tabTextActive]}>{t}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Category Scroll */}
+      {/* Category Horizontal Scroll */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catRow}>
         {CATEGORIES.map((cat) => (
           <TouchableOpacity
@@ -90,28 +100,30 @@ export default function BrowseScreen({ navigation, route }) {
         ))}
       </ScrollView>
 
-      {/* Sort (Browse tab only) */}
+      {/* Sort Options (Browse tab only) */}
       {tab === 0 && (
         <View style={styles.sortRow}>
           {SORT_OPTIONS.map((opt) => (
             <TouchableOpacity
               key={opt.value + opt.order}
-              style={[styles.sortChip, sort === opt && styles.sortChipActive]}
+              style={[styles.sortChip, sort.value === opt.value && sort.order === opt.order && styles.sortChipActive]}
               onPress={() => setSort(opt)}
             >
-              <Text style={[styles.sortText, sort === opt && styles.sortTextActive]}>{opt.label}</Text>
+              <Text style={[styles.sortText, sort.value === opt.value && sort.order === opt.order && styles.sortTextActive]}>
+                {opt.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
 
-      {/* List */}
+      {/* Torrent List */}
       {loading && data.length === 0 ? (
-        <LoadingSpinner message="Loading..." />
+        <LoadingSpinner message="Loading catalog..." />
       ) : error ? (
-        <ErrorView message={error} onRetry={() => fetchData()} />
+        <ErrorView message={error} onRetry={() => fetchData(tab, category, 1, sort, false)} />
       ) : data.length === 0 ? (
-        <EmptyView message="No torrents found." />
+        <EmptyView message="No torrents found in this category." />
       ) : (
         <FlatList
           data={data}
@@ -120,7 +132,6 @@ export default function BrowseScreen({ navigation, route }) {
             <TorrentCard
               torrent={item}
               onPress={(t) => navigation.navigate('TorrentDetail', { torrent: t })}
-              style={styles.cardPad}
             />
           )}
           contentContainerStyle={styles.listContent}
@@ -146,36 +157,67 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: COLORS.border,
   },
-  back: { padding: 4 },
-  headerTitle: { color: COLORS.text, fontSize: 20, fontWeight: '700' },
-  tabRow: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: COLORS.card,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderColor: 'transparent',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
   },
-  tabActive: { borderColor: COLORS.primary },
-  tabText: { color: COLORS.textSub, fontSize: 14, fontWeight: '600' },
-  tabTextActive: { color: COLORS.primary },
-  catRow: { paddingHorizontal: 12, paddingVertical: 10 },
+  headerTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.input,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderTopColor: COLORS.cardShadow,
+    borderLeftColor: COLORS.cardShadow,
+    borderBottomColor: COLORS.cardHighlight,
+    borderRightColor: COLORS.cardHighlight,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    borderRadius: 11,
+  },
+  tabBtnActive: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
+  },
+  tabText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '700' },
+  tabTextActive: { color: COLORS.primaryGlow },
+  catRow: { paddingHorizontal: 16, paddingVertical: 12 },
   catChip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 16,
+    borderRadius: 12,
     backgroundColor: COLORS.card,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
   },
-  catChipSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  catText: { color: COLORS.textSub, fontSize: 12, fontWeight: '600' },
+  catChipSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  catText: { color: COLORS.textSub, fontSize: 12, fontWeight: '700' },
   catTextSelected: { color: '#fff' },
   sortRow: {
     flexDirection: 'row',
@@ -185,15 +227,20 @@ const styles = StyleSheet.create({
   },
   sortChip: {
     paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
     backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
   },
-  sortChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  sortText: { color: COLORS.textSub, fontSize: 12, fontWeight: '600' },
+  sortChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  sortText: { color: COLORS.textSub, fontSize: 11, fontWeight: '700' },
   sortTextActive: { color: '#fff' },
-  listContent: { padding: 16, paddingBottom: 40 },
-  cardPad: { marginBottom: 10 },
+  listContent: { padding: 16, paddingBottom: 50 },
 });

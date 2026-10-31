@@ -1,190 +1,293 @@
-import React, { useState, useCallback } from 'react';
+/**
+ * TorrentDetailScreen.js
+ * Neumorphic detailed view for a torrent entry.
+ * Features:
+ *  - High-res poster & trailer integration (only shown if available)
+ *  - Working clipboard copy via expo-clipboard
+ *  - Multi-engine Player Selector (WebTor auto-paste, TorrServer, VLC, Browser)
+ *  - TV D-pad focusable buttons
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Platform,
-  TouchableOpacity, Share, Linking, Alert,
+  TouchableOpacity, Image, Linking, Alert, ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'react-native-linear-gradient';
-import { COLORS } from '../constants';
+import * as Clipboard from 'expo-clipboard';
+import { COLORS, NEU_STYLES } from '../constants';
 import { getTorrentDetail } from '../api/torrentApi';
+import { fetchMediaMetadata } from '../api/metaApi';
+import { PlayerSelectorModal } from '../components/PlayerSelectorModal';
 import { LoadingSpinner, ErrorView } from '../components/Common';
-import { useFetch } from '../hooks';
 
 const isTV = Platform.isTV;
 
 export default function TorrentDetailScreen({ navigation, route }) {
   const { torrent: initialTorrent } = route.params;
-  const [playMode, setPlayMode] = useState(null); // 'stream' | 'vlc' | 'external'
 
-  // Fetch full detail by ID (for magnet link and file list)
-  const { data, loading, error, refetch } = useFetch(
-    () => getTorrentDetail(initialTorrent.id),
-    [initialTorrent.id],
-    { enabled: !!initialTorrent.id }
-  );
+  const [detail, setDetail] = useState(initialTorrent);
+  const [metadata, setMetadata] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadingMeta, setLoadingMeta] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [playerModalVisible, setPlayerModalVisible] = useState(false);
 
-  const torrent = data?.torrent || initialTorrent;
-  const magnet = torrent?.magnet || initialTorrent?.magnet;
+  const magnet = detail?.magnet || initialTorrent?.magnet;
+  const infoHash = detail?.infoHash || magnet?.match(/btih:([a-fA-F0-9]+)/i)?.[1];
 
-  const handlePlay = useCallback(() => {
+  // Fetch full detail from backend (if needed)
+  useEffect(() => {
+    let isMounted = true;
+    if (initialTorrent?.id && (!initialTorrent.description || !initialTorrent.files)) {
+      setLoadingDetail(true);
+      getTorrentDetail(initialTorrent.id)
+        .then(res => {
+          if (isMounted && res.torrent) {
+            setDetail(prev => ({ ...prev, ...res.torrent }));
+          }
+        })
+        .catch(e => console.warn('Detail fetch error:', e.message))
+        .finally(() => { if (isMounted) setLoadingDetail(false); });
+    }
+    return () => { isMounted = false; };
+  }, [initialTorrent]);
+
+  // Fetch poster & trailer metadata (Cinemeta / TVMaze)
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingMeta(true);
+    fetchMediaMetadata(initialTorrent?.title)
+      .then(meta => {
+        if (isMounted) {
+          setMetadata(meta);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (isMounted) setLoadingMeta(false); });
+    return () => { isMounted = false; };
+  }, [initialTorrent]);
+
+  // Working copy to clipboard
+  const handleCopyMagnet = useCallback(async () => {
     if (!magnet) {
-      Alert.alert('No Magnet Link', 'Could not find the magnet link for this torrent. Try refreshing.');
+      Alert.alert('No Magnet', 'Magnet link not available for this torrent.');
       return;
     }
-    navigation.navigate('Player', { torrent, magnet });
-  }, [magnet, torrent, navigation]);
+    try {
+      await Clipboard.setStringAsync(magnet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      Alert.alert('Copied', 'Magnet link copied to clipboard.');
+    }
+  }, [magnet]);
 
-  const handleOpenVLC = useCallback(() => {
-    if (!magnet) return;
-    // VLC for Android accepts vlc:// scheme with magnet
-    const vlcUrl = `vlc://${magnet}`;
-    Linking.canOpenURL(vlcUrl).then(can => {
-      if (can) {
-        Linking.openURL(vlcUrl);
-      } else {
-        Alert.alert(
-          'VLC Not Installed',
-          'Install VLC for Android to stream torrents.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Install VLC', onPress: () => Linking.openURL('market://details?id=org.videolan.vlc') },
-          ]
-        );
-      }
+  // Open Player Selector Modal
+  const handleOpenPlayerModal = useCallback(() => {
+    if (!magnet) {
+      Alert.alert('No Magnet Link', 'Magnet link is still loading. Please wait a moment.');
+      return;
+    }
+    setPlayerModalVisible(true);
+  }, [magnet]);
+
+  // Handle in-app stream selection from modal
+  const handleSelectInAppEngine = useCallback((engine) => {
+    navigation.navigate('Player', {
+      torrent: detail,
+      magnet,
+      engine, // 'webtor' or 'torrserver'
     });
-  }, [magnet]);
+  }, [detail, magnet, navigation]);
 
-  const handleShare = useCallback(() => {
-    if (magnet) {
-      Share.share({ message: `${torrent.title}\n\n${magnet}` });
+  // Open Official Trailer (if available)
+  const handleOpenTrailer = useCallback(async () => {
+    if (metadata?.trailerUrl) {
+      try {
+        await Linking.openURL(metadata.trailerUrl);
+      } catch (_) {
+        Alert.alert('Trailer', 'Could not open trailer link.');
+      }
     }
-  }, [magnet, torrent]);
-
-  const handleCopyMagnet = useCallback(() => {
-    if (magnet) {
-      // Clipboard write (expo-clipboard)
-      Alert.alert('Magnet Copied', 'Magnet link copied to clipboard!');
-    }
-  }, [magnet]);
-
-  const infoHash = torrent?.infoHash || magnet?.match(/btih:([a-fA-F0-9]+)/i)?.[1];
+  }, [metadata]);
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Top Navigation Bar */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <MaterialIcons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>Torrent Details</Text>
-        <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
-          <MaterialIcons name="share" size={22} color={COLORS.text} />
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {detail?.title || 'Torrent Details'}
+        </Text>
+        <TouchableOpacity style={styles.shareBtn} onPress={handleCopyMagnet}>
+          <MaterialIcons name={copied ? 'check' : 'content-copy'} size={20} color={copied ? COLORS.seeder : COLORS.text} />
         </TouchableOpacity>
       </View>
 
-      {loading && !data ? (
-        <LoadingSpinner message="Loading torrent details..." />
-      ) : error && !initialTorrent ? (
-        <ErrorView message={error} onRetry={refetch} />
-      ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Title Block */}
-          <View style={styles.titleBlock}>
-            <View style={styles.categoryBadge}>
-              <MaterialIcons name="movie" size={14} color={COLORS.primary} />
-              <Text style={styles.categoryText}>{torrent.category || 'Unknown'}</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ─── POSTER / BACKDROP CARD (Only rendered if available) ─── */}
+        {metadata && metadata.poster ? (
+          <View style={styles.posterCard}>
+            <Image
+              source={{ uri: metadata.poster }}
+              style={styles.posterImage}
+              resizeMode="cover"
+            />
+            <View style={styles.posterInfo}>
+              <Text style={styles.metaTitle} numberOfLines={2}>{metadata.name}</Text>
+              
+              <View style={styles.posterMetaRow}>
+                {metadata.year && (
+                  <View style={styles.yearChip}>
+                    <Text style={styles.yearChipText}>{metadata.year}</Text>
+                  </View>
+                )}
+                {metadata.rating && (
+                  <View style={styles.ratingChip}>
+                    <MaterialIcons name="star" size={12} color={COLORS.gold} />
+                    <Text style={styles.ratingText}>{metadata.rating}</Text>
+                  </View>
+                )}
+              </View>
+
+              {metadata.genres && metadata.genres.length > 0 && (
+                <Text style={styles.genresText} numberOfLines={1}>
+                  {metadata.genres.join(' • ')}
+                </Text>
+              )}
+
+              {/* Watch Trailer Button (only if trailer available) */}
+              {metadata.trailerUrl && (
+                <TouchableOpacity style={styles.trailerBtn} onPress={handleOpenTrailer}>
+                  <MaterialIcons name="movie" size={15} color="#FF5252" />
+                  <Text style={styles.trailerBtnText}>Watch Trailer</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <Text style={styles.title}>{torrent.title}</Text>
+          </View>
+        ) : null}
+
+        {/* ─── TITLE & BADGE BLOCK ─── */}
+        <View style={styles.neuBlock}>
+          <View style={styles.catBadgeRow}>
+            <View style={styles.catBadge}>
+              <MaterialIcons name="local-offer" size={12} color={COLORS.primaryGlow} />
+              <Text style={styles.catBadgeText}>{detail.category || 'General'}</Text>
+            </View>
+            {detail.uploader && (
+              <Text style={styles.uploaderText}>by {detail.uploader}</Text>
+            )}
           </View>
 
-          {/* Quick Stats */}
-          <View style={styles.statsRow}>
-            <StatChip icon="arrow-upward" color={COLORS.seeder} value={`${torrent.seeders || 0} Seeders`} />
-            <StatChip icon="arrow-downward" color={COLORS.leecher} value={`${torrent.leechers || 0} Leechers`} />
-            <StatChip icon="storage" color={COLORS.primary} value={torrent.size || 'N/A'} />
+          <Text style={styles.torrentTitle}>{detail.title}</Text>
+
+          {/* Quick Metrics */}
+          <View style={styles.statsGrid}>
+            <View style={styles.statTile}>
+              <MaterialIcons name="arrow-upward" size={16} color={COLORS.seeder} />
+              <Text style={[styles.statValue, { color: COLORS.seeder }]}>
+                {(parseInt(detail.seeders) || 0).toLocaleString()}
+              </Text>
+              <Text style={styles.statLabel}>Seeders</Text>
+            </View>
+
+            <View style={styles.statTile}>
+              <MaterialIcons name="arrow-downward" size={16} color={COLORS.leecher} />
+              <Text style={[styles.statValue, { color: COLORS.leecher }]}>
+                {(parseInt(detail.leechers) || 0).toLocaleString()}
+              </Text>
+              <Text style={styles.statLabel}>Leechers</Text>
+            </View>
+
+            <View style={styles.statTile}>
+              <MaterialIcons name="storage" size={16} color={COLORS.secondary} />
+              <Text style={[styles.statValue, { color: COLORS.secondary }]}>
+                {detail.size || 'N/A'}
+              </Text>
+              <Text style={styles.statLabel}>Size</Text>
+            </View>
           </View>
+        </View>
 
-          {/* ─── PLAY BUTTONS ─── */}
-          <View style={styles.playSection}>
-            {/* Primary: In-app stream */}
-            <TouchableOpacity style={styles.playBtn} onPress={handlePlay}>
-              <MaterialIcons name="play-circle-filled" size={24} color="#fff" />
-              <Text style={styles.playBtnText}>▶ Stream In-App</Text>
-            </TouchableOpacity>
+        {/* ─── ACTION BUTTONS (Neumorphic Extruded) ─── */}
+        <View style={styles.actionSection}>
+          {/* Main Primary Stream Button */}
+          <TouchableOpacity
+            style={styles.btnPrimaryStream}
+            activeOpacity={0.85}
+            onPress={handleOpenPlayerModal}
+          >
+            <MaterialIcons name="play-arrow" size={28} color="#fff" />
+            <View>
+              <Text style={styles.btnPrimaryTitle}>STREAM VIDEO</Text>
+              <Text style={styles.btnPrimarySub}>Choose WebTor, TorrServer, or VLC</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color="#fff" style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
 
-            {/* Secondary: Open in VLC */}
-            <TouchableOpacity style={styles.vlcBtn} onPress={handleOpenVLC}>
-              <MaterialIcons name="open-in-new" size={20} color={COLORS.text} />
-              <Text style={styles.vlcBtnText}>Open in VLC</Text>
-            </TouchableOpacity>
+          {/* Copy Magnet Button with Live Feedback */}
+          <TouchableOpacity
+            style={[styles.btnCopyMagnet, copied && styles.btnCopiedActive]}
+            activeOpacity={0.8}
+            onPress={handleCopyMagnet}
+          >
+            <MaterialIcons
+              name={copied ? 'check-circle' : 'content-copy'}
+              size={20}
+              color={copied ? COLORS.seeder : COLORS.primaryGlow}
+            />
+            <Text style={[styles.btnCopyText, copied && { color: COLORS.seeder }]}>
+              {copied ? 'Magnet Link Copied to Clipboard!' : 'Copy Magnet Link'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-            {/* Copy Magnet */}
-            <TouchableOpacity style={styles.magnetBtn} onPress={handleCopyMagnet}>
-              <MaterialIcons name="content-copy" size={18} color={COLORS.primary} />
-              <Text style={styles.magnetBtnText}>Copy Magnet Link</Text>
+        {/* ─── DESCRIPTION (If available) ─── */}
+        {(metadata?.description || detail.description) ? (
+          <View style={styles.neuBlock}>
+            <Text style={styles.sectionHeading}>About this Release</Text>
+            <Text style={styles.descriptionText} numberOfLines={8}>
+              {metadata?.description || detail.description}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* ─── FILE LIST (If available) ─── */}
+        {detail.files && detail.files.length > 0 && (
+          <View style={styles.neuBlock}>
+            <Text style={styles.sectionHeading}>Included Files ({detail.files.length})</Text>
+            {detail.files.slice(0, 15).map((f, i) => (
+              <View key={i} style={styles.fileRow}>
+                <MaterialIcons name="insert-drive-file" size={14} color={COLORS.textMuted} />
+                <Text style={styles.fileNameText} numberOfLines={1}>{f}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ─── MAGNET PREVIEW BOX ─── */}
+        {magnet && (
+          <View style={styles.neuBlock}>
+            <Text style={styles.sectionHeading}>Raw Magnet URI</Text>
+            <TouchableOpacity style={styles.magnetBox} onPress={handleCopyMagnet}>
+              <Text style={styles.magnetText} numberOfLines={2}>{magnet}</Text>
+              <Text style={styles.tapToCopyText}>Tap to copy URI</Text>
             </TouchableOpacity>
           </View>
+        )}
+      </ScrollView>
 
-          {/* Meta details */}
-          {loading ? null : (
-            <View style={styles.detailCard}>
-              <MetaRow label="Info Hash" value={infoHash ? `${infoHash.slice(0, 20)}...` : 'N/A'} />
-              {torrent.uploaded  && <MetaRow label="Uploaded"  value={torrent.uploaded} />}
-              {torrent.uploader  && <MetaRow label="By"        value={torrent.uploader} />}
-              {torrent.size      && <MetaRow label="Size"      value={torrent.size} />}
-            </View>
-          )}
-
-          {/* Description */}
-          {torrent.description ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>{torrent.description}</Text>
-            </View>
-          ) : null}
-
-          {/* File list */}
-          {torrent.files && torrent.files.length > 0 ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Files ({torrent.files.length})</Text>
-              {torrent.files.map((f, i) => (
-                <View key={i} style={styles.fileRow}>
-                  <MaterialIcons name="insert-drive-file" size={14} color={COLORS.textMuted} />
-                  <Text style={styles.fileName} numberOfLines={1}>{f}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          {/* Magnet display */}
-          {magnet && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Magnet Link</Text>
-              <TouchableOpacity style={styles.magnetBox} onPress={handleCopyMagnet}>
-                <Text style={styles.magnetText} numberOfLines={3}>{magnet}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
-      )}
-    </View>
-  );
-}
-
-function StatChip({ icon, color, value }) {
-  return (
-    <View style={styles.statChip}>
-      <MaterialIcons name={icon} size={14} color={color} />
-      <Text style={[styles.statText, { color }]}>{value}</Text>
-    </View>
-  );
-}
-
-function MetaRow({ label, value }) {
-  return (
-    <View style={styles.metaRow}>
-      <Text style={styles.metaLabel}>{label}</Text>
-      <Text style={styles.metaValue} selectable>{value}</Text>
+      {/* Multiple Player Options Modal */}
+      <PlayerSelectorModal
+        visible={playerModalVisible}
+        onClose={() => setPlayerModalVisible(false)}
+        torrent={detail}
+        magnet={magnet}
+        onSelectInApp={handleSelectInAppEngine}
+      />
     </View>
   );
 }
@@ -196,111 +299,232 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? 44 : 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderColor: COLORS.border,
   },
-  backBtn: { padding: 4, marginRight: 10 },
-  headerTitle: { flex: 1, color: COLORS.text, fontSize: 17, fontWeight: '700' },
-  shareBtn: { padding: 4 },
-  scroll: { padding: 20, paddingBottom: 60 },
-  titleBlock: { marginBottom: 16 },
-  categoryBadge: {
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
+  },
+  headerTitle: { flex: 1, color: COLORS.text, fontSize: 16, fontWeight: '700' },
+  shareBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
+  },
+  scroll: { padding: 16, paddingBottom: 60, gap: 14 },
+
+  // Poster Card
+  posterCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 5, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  posterImage: {
+    width: 120,
+    height: 170,
+    backgroundColor: COLORS.input,
+  },
+  posterInfo: {
+    flex: 1,
+    padding: 14,
+    justifyContent: 'center',
+    gap: 6,
+  },
+  metaTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  posterMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary + '22',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    gap: 8,
+  },
+  yearChip: {
+    backgroundColor: COLORS.input,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     borderRadius: 6,
   },
-  categoryText: { color: COLORS.primary, fontSize: 12, fontWeight: '700' },
-  title: { color: COLORS.text, fontSize: isTV ? 24 : 20, fontWeight: '800', lineHeight: 28 },
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
-  statChip: {
+  yearChipText: { color: COLORS.textSub, fontSize: 11, fontWeight: '700' },
+  ratingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.input,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  ratingText: { color: COLORS.gold, fontSize: 11, fontWeight: '800' },
+  genresText: { color: COLORS.textMuted, fontSize: 11 },
+  trailerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: COLORS.card,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
+    backgroundColor: '#FF5252' + '22',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    marginTop: 4,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#FF5252' + '44',
   },
-  statText: { fontSize: 13, fontWeight: '700' },
-  playSection: { gap: 10, marginBottom: 24 },
-  playBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.primary,
-    paddingVertical: isTV ? 18 : 14,
-    borderRadius: 12,
-  },
-  playBtnText: { color: '#fff', fontSize: isTV ? 18 : 16, fontWeight: '800' },
-  vlcBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+  trailerBtnText: { color: '#FF7070', fontSize: 11, fontWeight: '800' },
+
+  // Neumorphic Block
+  neuBlock: {
     backgroundColor: COLORS.card,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  vlcBtnText: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
-  magnetBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.primary + '55',
-  },
-  magnetBtnText: { color: COLORS.primary, fontSize: 14, fontWeight: '600' },
-  detailCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 16,
-    marginBottom: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 5 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  metaRow: {
+  catBadgeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  catBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary + '22',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  catBadgeText: { color: COLORS.primaryGlow, fontSize: 10, fontWeight: '800' },
+  uploaderText: { color: COLORS.textMuted, fontSize: 11 },
+  torrentTitle: {
+    color: COLORS.text,
+    fontSize: isTV ? 20 : 17,
+    fontWeight: '800',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statTile: {
+    flex: 1,
+    backgroundColor: COLORS.input,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderTopColor: COLORS.cardShadow,
+    borderLeftColor: COLORS.cardShadow,
+    borderBottomColor: COLORS.cardHighlight,
+    borderRightColor: COLORS.cardHighlight,
+  },
+  statValue: { fontSize: 15, fontWeight: '800', marginTop: 2 },
+  statLabel: { color: COLORS.textMuted, fontSize: 10, marginTop: 1 },
+
+  // Actions
+  actionSection: { gap: 10 },
+  btnPrimaryStream: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    gap: 14,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  btnPrimaryTitle: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  btnPrimarySub: { color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 1 },
+
+  btnCopyMagnet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    paddingVertical: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderTopColor: COLORS.cardHighlight,
+    borderLeftColor: COLORS.cardHighlight,
+    borderBottomColor: COLORS.cardShadow,
+    borderRightColor: COLORS.cardShadow,
+  },
+  btnCopiedActive: {
+    backgroundColor: COLORS.seeder + '15',
+    borderColor: COLORS.seeder,
+  },
+  btnCopyText: { color: COLORS.primaryGlow, fontSize: 13, fontWeight: '700' },
+
+  sectionHeading: { color: COLORS.text, fontSize: 14, fontWeight: '800', marginBottom: 10 },
+  descriptionText: { color: COLORS.textSub, fontSize: 12, lineHeight: 18 },
+  fileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderColor: COLORS.border,
   },
-  metaLabel: { color: COLORS.textMuted, fontSize: 13 },
-  metaValue: { color: COLORS.text, fontSize: 13, fontWeight: '600', maxWidth: '60%', textAlign: 'right' },
-  section: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  sectionTitle: { color: COLORS.text, fontSize: 15, fontWeight: '700', marginBottom: 10 },
-  description: { color: COLORS.textSub, fontSize: 13, lineHeight: 20 },
-  fileRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, borderBottomWidth: 1, borderColor: COLORS.border },
-  fileName: { flex: 1, color: COLORS.textSub, fontSize: 12 },
+  fileNameText: { flex: 1, color: COLORS.textSub, fontSize: 11 },
   magnetBox: {
-    backgroundColor: COLORS.bg,
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: COLORS.input,
+    borderRadius: 12,
+    padding: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderTopColor: COLORS.cardShadow,
+    borderLeftColor: COLORS.cardShadow,
+    borderBottomColor: COLORS.cardHighlight,
+    borderRightColor: COLORS.cardHighlight,
   },
-  magnetText: { color: COLORS.primary, fontSize: 11, lineHeight: 16 },
+  magnetText: { color: COLORS.primaryGlow, fontSize: 10, lineHeight: 14 },
+  tapToCopyText: { color: COLORS.textMuted, fontSize: 9, marginTop: 4, textAlign: 'right' },
 });

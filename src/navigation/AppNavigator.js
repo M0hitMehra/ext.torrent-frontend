@@ -32,14 +32,21 @@ function TabNavigator() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.border,
+          borderTopColor: COLORS.cardHighlight,
           borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: COLORS.primary,
+        tabBarActiveTintColor: COLORS.primaryGlow,
         tabBarInactiveTintColor: COLORS.textMuted,
-        tabBarIcon: ({ color, size }) => {
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+        },
+        tabBarIcon: ({ color, size, focused }) => {
           const icons = { Home: 'home', Search: 'search', Browse: 'explore' };
-          return <MaterialIcons name={icons[route.name] || 'home'} size={size} color={color} />;
+          return <MaterialIcons name={icons[route.name] || 'home'} size={focused ? 24 : 22} color={color} />;
         },
       })}
     >
