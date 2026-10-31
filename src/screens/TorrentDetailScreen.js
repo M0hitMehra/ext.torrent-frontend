@@ -14,7 +14,7 @@ import {
   TouchableOpacity, Image, Linking, Alert, ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
+import { setClipboardString } from '../utils/clipboard';
 import { COLORS, NEU_STYLES } from '../constants';
 import { getTorrentDetail } from '../api/torrentApi';
 import { fetchMediaMetadata } from '../api/metaApi';
@@ -75,11 +75,12 @@ export default function TorrentDetailScreen({ navigation, route }) {
       return;
     }
     try {
-      await Clipboard.setStringAsync(magnet);
+      await setClipboardString(magnet);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch (e) {
-      Alert.alert('Copied', 'Magnet link copied to clipboard.');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
     }
   }, [magnet]);
 
