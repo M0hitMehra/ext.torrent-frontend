@@ -5,10 +5,15 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-apk:
     name: Build Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout Repository
