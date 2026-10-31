@@ -4,13 +4,14 @@
  * TV & Mobile compatible with D-pad focus states.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
   Platform, Linking, Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS, NEU_STYLES } from '../constants';
+import { COLORS } from '../constants';
+import { useTVFocus, playTVSelectFeedback } from '../hooks';
 
 const isTV = Platform.isTV;
 
@@ -18,18 +19,19 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
   if (!torrent || !magnet) return null;
 
   const handleWebTorInApp = () => {
+    playTVSelectFeedback();
     onClose();
-    // Navigate to in-app player with webtor engine
     onSelectInApp('webtor');
   };
 
   const handleTorrServerInApp = () => {
+    playTVSelectFeedback();
     onClose();
-    // Navigate to in-app player with torrserver engine
     onSelectInApp('torrserver');
   };
 
   const handleOpenVLC = async () => {
+    playTVSelectFeedback();
     onClose();
     const vlcUrl = `vlc://${magnet}`;
     try {
@@ -52,12 +54,14 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
   };
 
   const handleOpenWebTorBrowser = async () => {
+    playTVSelectFeedback();
     onClose();
     const webTorUrl = `https://webtor.io/#action=load&magnet=${encodeURIComponent(magnet)}`;
     await Linking.openURL(webTorUrl);
   };
 
   const handleOpenSystemDefault = async () => {
+    playTVSelectFeedback();
     onClose();
     try {
       await Linking.openURL(magnet);
@@ -74,7 +78,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.headerIconWrapper}>
-                <MaterialIcons name="play-circle-filled" size={26} color={COLORS.primary} />
+                <MaterialIcons name="play-circle-filled" size={26} color={COLORS.primaryGlow} />
               </View>
               <View style={styles.headerTitleWrap}>
                 <Text style={styles.headerTitle}>Select Streaming Player</Text>
@@ -97,6 +101,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               description="Streams directly inside app. Automatically injects magnet link."
               onPress={handleWebTorInApp}
               recommended
+              isFirst
             />
 
             {/* 2. TorrServer Native Stream */}
@@ -143,36 +148,48 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
   );
 }
 
-function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress, recommended }) {
-  const [focused, setFocused] = useState(false);
+function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress, recommended, isFirst }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
 
   return (
     <TouchableOpacity
       activeOpacity={0.8}
+      hasTVPreferredFocus={isFirst && isTV}
       style={[
         styles.tile,
         recommended && styles.tileRecommended,
         focused && styles.tileFocused,
       ]}
       onPress={onPress}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={onFocus}
+      onBlur={onBlur}
     >
       <View style={[styles.tileIconCircle, { backgroundColor: iconColor + '20' }]}>
         <MaterialIcons name={icon} size={22} color={iconColor} />
       </View>
       <View style={styles.tileTextWrap}>
         <View style={styles.tileTitleRow}>
-          <Text style={styles.tileTitle}>{title}</Text>
+          <Text style={[styles.tileTitle, focused && styles.tileTitleFocused]}>{title}</Text>
           {badge && (
-            <View style={[styles.badge, recommended && styles.badgeRec]}>
-              <Text style={styles.badgeText}>{badge}</Text>
+            <View style={[styles.badge, recommended && styles.badgeRec, focused && styles.badgeFocused]}>
+              <Text style={[styles.badgeText, focused && styles.badgeTextFocused]}>{badge}</Text>
             </View>
           )}
         </View>
-        <Text style={styles.tileDesc} numberOfLines={2}>{description}</Text>
+        <Text style={[styles.tileDesc, focused && styles.tileDescFocused]} numberOfLines={2}>
+          {description}
+        </Text>
       </View>
-      <MaterialIcons name="chevron-right" size={20} color={focused ? COLORS.primary : COLORS.textMuted} />
+      <MaterialIcons
+        name="chevron-right"
+        size={22}
+        color={focused ? '#FFFFFF' : COLORS.textMuted}
+      />
+      {focused && (
+        <View style={styles.tileBeacon}>
+          <Text style={styles.tileBeaconText}>SELECT</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -263,10 +280,40 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   tileFocused: {
-    borderColor: COLORS.tvFocus,
-    borderWidth: 2,
-    backgroundColor: '#262937',
-    transform: [{ scale: 1.02 }],
+    borderColor: '#FFFFFF',
+    borderWidth: 2.8,
+    backgroundColor: '#262A3C',
+    transform: [{ scale: 1.05 }],
+    shadowColor: COLORS.primaryGlow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 16,
+    elevation: 14,
+  },
+  tileTitleFocused: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+  tileDescFocused: {
+    color: '#FFFFFF',
+  },
+  badgeFocused: {
+    backgroundColor: COLORS.primary,
+  },
+  badgeTextFocused: {
+    color: '#FFFFFF',
+  },
+  tileBeacon: {
+    backgroundColor: COLORS.tvPointer,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  tileBeaconText: {
+    color: '#000000',
+    fontSize: 9,
+    fontWeight: '900',
   },
   tileIconCircle: {
     width: 40,

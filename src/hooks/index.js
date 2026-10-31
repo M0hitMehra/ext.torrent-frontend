@@ -1,4 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { NativeModules, Platform } from 'react-native';
+
+const { NativeClipboard } = NativeModules;
+
+export function playTVFocusFeedback() {
+  try {
+    NativeClipboard?.playFocusSound?.();
+  } catch (_) {}
+}
+
+export function playTVSelectFeedback() {
+  try {
+    NativeClipboard?.playSelectSound?.();
+    NativeClipboard?.triggerHaptic?.();
+  } catch (_) {}
+}
 
 /**
  * Generic data-fetching hook with loading/error state and pagination support.
@@ -39,15 +55,26 @@ export function useFetch(fetchFn, deps = [], options = {}) {
 }
 
 /**
- * TV D-pad focus management hook.
- * Returns ref + focus/blur handlers that manage visual focus on TV.
+ * TV D-pad focus management hook with audio-haptic feedback.
+ * Provides instant pointer highlight state and triggers native TV navigation ticks.
  */
-export function useTVFocus() {
+export function useTVFocus(onCustomFocus) {
   const [focused, setFocused] = useState(false);
+
+  const onFocus = useCallback(() => {
+    setFocused(true);
+    playTVFocusFeedback();
+    if (onCustomFocus) onCustomFocus();
+  }, [onCustomFocus]);
+
+  const onBlur = useCallback(() => {
+    setFocused(false);
+  }, []);
+
   return {
     focused,
-    onFocus: () => setFocused(true),
-    onBlur: () => setFocused(false),
+    onFocus,
+    onBlur,
   };
 }
 

@@ -15,27 +15,31 @@ export const CATEGORIES = [
 
 export const TORR_SERVER_BASE = 'https://torrserver.me';
 
-// Neumorphism Theme Colors (Dark Mode Obsidian/Slate)
+// Neumorphism Theme Colors (Dark Mode Obsidian/Slate with High-Contrast TV Focus)
 export const COLORS = {
-  bg:            '#121319',
-  surface:       '#1A1C24',
-  card:          '#1E212B',
-  cardHighlight: '#2A2E3C', // Top-left light reflection
-  cardShadow:    '#0B0C10', // Bottom-right dark drop shadow
-  input:         '#15171E',
-  inputBorder:   '#282B37',
-  primary:       '#7C6CFF',
-  primaryDark:   '#5B4AFF',
-  primaryGlow:   '#A295FF',
-  secondary:     '#00E5FF',
+  bg:            '#0F1015',
+  surface:       '#161821',
+  surfaceElevated: '#1D202C',
+  card:          '#1C1F2B',
+  cardHighlight: '#2B3042', // Top-left light reflection (soft bevel)
+  cardShadow:    '#08090C', // Bottom-right dark drop shadow
+  input:         '#13141B',
+  inputBorder:   '#242838',
+  primary:       '#6C5CE7',
+  primaryDark:   '#5042CC',
+  primaryGlow:   '#A29BFE',
+  secondary:     '#00D2D3',
   accent:        '#FF5252',
   text:          '#FFFFFF',
-  textSub:       '#A4A8BF',
+  textSub:       '#AAB0C5',
   textMuted:     '#666B85',
   seeder:        '#00E676',
   leecher:       '#FF5252',
-  border:        '#282B38',
-  tvFocus:       '#7C6CFF',
+  border:        '#232736',
+  tvFocus:       '#FFFFFF', // YouTube TV style pure white high-contrast focus ring
+  tvFocusBorder: '#FFFFFF',
+  tvFocusGlow:   '#6C5CE7',
+  tvPointer:     '#00F0FF', // Cyan beacon indicator
   gold:          '#FFD700',
 };
 
@@ -43,28 +47,28 @@ export const COLORS = {
 export const NEU_STYLES = {
   card: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderTopColor: COLORS.cardHighlight,
     borderLeftColor: COLORS.cardHighlight,
     borderBottomColor: COLORS.cardShadow,
     borderRightColor: COLORS.cardShadow,
-    shadowColor: '#000',
-    shadowOffset: { width: 5, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 5, height: 7 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
     elevation: 8,
   },
   cardFocused: {
-    borderColor: COLORS.tvFocus,
-    borderWidth: 2,
-    backgroundColor: '#242735',
-    transform: [{ scale: 1.03 }],
+    borderColor: '#FFFFFF',
+    borderWidth: 2.5,
+    backgroundColor: '#262A3C',
+    transform: [{ scale: 1.05 }],
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 14,
-    elevation: 12,
+    shadowOpacity: 0.95,
+    shadowRadius: 20,
+    elevation: 18,
   },
   button: {
     backgroundColor: COLORS.card,
@@ -74,9 +78,9 @@ export const NEU_STYLES = {
     borderLeftColor: COLORS.cardHighlight,
     borderBottomColor: COLORS.cardShadow,
     borderRightColor: COLORS.cardShadow,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 4, height: 5 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.5,
     shadowRadius: 6,
     elevation: 6,
   },
@@ -85,9 +89,9 @@ export const NEU_STYLES = {
     borderRadius: 14,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
   },
   input: {
     backgroundColor: COLORS.input,

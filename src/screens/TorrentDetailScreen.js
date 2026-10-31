@@ -15,11 +15,12 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { setClipboardString } from '../utils/clipboard';
-import { COLORS, NEU_STYLES } from '../constants';
+import { COLORS } from '../constants';
 import { getTorrentDetail } from '../api/torrentApi';
 import { fetchMediaMetadata } from '../api/metaApi';
 import { PlayerSelectorModal } from '../components/PlayerSelectorModal';
 import { LoadingSpinner, ErrorView } from '../components/Common';
+import { useTVFocus, playTVSelectFeedback } from '../hooks';
 
 const isTV = Platform.isTV;
 
@@ -117,15 +118,11 @@ export default function TorrentDetailScreen({ navigation, route }) {
     <View style={styles.container}>
       {/* Top Navigation Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
+        <DetailBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {detail?.title || 'Torrent Details'}
         </Text>
-        <TouchableOpacity style={styles.shareBtn} onPress={handleCopyMagnet}>
-          <MaterialIcons name={copied ? 'check' : 'content-copy'} size={20} color={copied ? COLORS.seeder : COLORS.text} />
-        </TouchableOpacity>
+        <DetailCopyHeaderButton copied={copied} onPress={handleCopyMagnet} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -162,10 +159,7 @@ export default function TorrentDetailScreen({ navigation, route }) {
 
               {/* Watch Trailer Button (only if trailer available) */}
               {metadata.trailerUrl && (
-                <TouchableOpacity style={styles.trailerBtn} onPress={handleOpenTrailer}>
-                  <MaterialIcons name="movie" size={15} color="#FF5252" />
-                  <Text style={styles.trailerBtnText}>Watch Trailer</Text>
-                </TouchableOpacity>
+                <DetailTrailerButton onPress={handleOpenTrailer} />
               )}
             </View>
           </View>
@@ -213,37 +207,13 @@ export default function TorrentDetailScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* ─── ACTION BUTTONS (Neumorphic Extruded) ─── */}
+        {/* ─── ACTION BUTTONS (Neumorphic Extruded with TV Pointer) ─── */}
         <View style={styles.actionSection}>
           {/* Main Primary Stream Button */}
-          <TouchableOpacity
-            style={styles.btnPrimaryStream}
-            activeOpacity={0.85}
-            onPress={handleOpenPlayerModal}
-          >
-            <MaterialIcons name="play-arrow" size={28} color="#fff" />
-            <View>
-              <Text style={styles.btnPrimaryTitle}>STREAM VIDEO</Text>
-              <Text style={styles.btnPrimarySub}>Choose WebTor, TorrServer, or VLC</Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={24} color="#fff" style={{ marginLeft: 'auto' }} />
-          </TouchableOpacity>
+          <DetailStreamMainButton onPress={handleOpenPlayerModal} />
 
           {/* Copy Magnet Button with Live Feedback */}
-          <TouchableOpacity
-            style={[styles.btnCopyMagnet, copied && styles.btnCopiedActive]}
-            activeOpacity={0.8}
-            onPress={handleCopyMagnet}
-          >
-            <MaterialIcons
-              name={copied ? 'check-circle' : 'content-copy'}
-              size={20}
-              color={copied ? COLORS.seeder : COLORS.primaryGlow}
-            />
-            <Text style={[styles.btnCopyText, copied && { color: COLORS.seeder }]}>
-              {copied ? 'Magnet Link Copied to Clipboard!' : 'Copy Magnet Link'}
-            </Text>
-          </TouchableOpacity>
+          <DetailCopyMagnetButton copied={copied} onPress={handleCopyMagnet} />
         </View>
 
         {/* ─── DESCRIPTION (If available) ─── */}
@@ -273,10 +243,7 @@ export default function TorrentDetailScreen({ navigation, route }) {
         {magnet && (
           <View style={styles.neuBlock}>
             <Text style={styles.sectionHeading}>Raw Magnet URI</Text>
-            <TouchableOpacity style={styles.magnetBox} onPress={handleCopyMagnet}>
-              <Text style={styles.magnetText} numberOfLines={2}>{magnet}</Text>
-              <Text style={styles.tapToCopyText}>Tap to copy URI</Text>
-            </TouchableOpacity>
+            <DetailMagnetBox magnet={magnet} onPress={handleCopyMagnet} />
           </View>
         )}
       </ScrollView>
@@ -482,6 +449,56 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 10,
   },
+  btnPrimaryStreamFocused: {
+    borderColor: '#FFFFFF',
+    borderWidth: 3,
+    backgroundColor: COLORS.primaryDark,
+    transform: [{ scale: 1.05 }],
+    shadowColor: COLORS.primaryGlow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  streamPointerPill: {
+    backgroundColor: COLORS.tvPointer,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 'auto',
+  },
+  streamPointerPillText: {
+    color: '#000000',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  btnCopyMagnetFocused: {
+    borderColor: '#FFFFFF',
+    borderWidth: 2.5,
+    backgroundColor: COLORS.surfaceElevated,
+    transform: [{ scale: 1.05 }],
+  },
+  trailerBtnFocused: {
+    borderColor: '#FFFFFF',
+    borderWidth: 2,
+    backgroundColor: '#FF5252' + '33',
+    transform: [{ scale: 1.08 }],
+  },
+  backBtnFocused: {
+    borderColor: '#FFFFFF',
+    borderWidth: 2,
+    backgroundColor: COLORS.primary,
+  },
+  shareBtnFocused: {
+    borderColor: '#FFFFFF',
+    borderWidth: 2,
+    backgroundColor: COLORS.primary,
+  },
+  magnetBoxFocused: {
+    borderColor: '#FFFFFF',
+    borderWidth: 2,
+    backgroundColor: COLORS.surfaceElevated,
+  },
   btnPrimaryTitle: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
   btnPrimarySub: { color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 1 },
 
@@ -529,3 +546,118 @@ const styles = StyleSheet.create({
   magnetText: { color: COLORS.primaryGlow, fontSize: 10, lineHeight: 14 },
   tapToCopyText: { color: COLORS.textMuted, fontSize: 9, marginTop: 4, textAlign: 'right' },
 });
+
+function DetailBackButton({ onPress }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity
+      style={[styles.backBtn, focused && styles.backBtnFocused]}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    >
+      <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+    </TouchableOpacity>
+  );
+}
+
+function DetailCopyHeaderButton({ copied, onPress }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity
+      style={[styles.shareBtn, focused && styles.shareBtnFocused]}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    >
+      <MaterialIcons
+        name={copied ? 'check' : 'content-copy'}
+        size={20}
+        color={copied ? COLORS.seeder : '#FFFFFF'}
+      />
+    </TouchableOpacity>
+  );
+}
+
+function DetailTrailerButton({ onPress }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity
+      style={[styles.trailerBtn, focused && styles.trailerBtnFocused]}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    >
+      <MaterialIcons name="movie" size={15} color="#FF5252" />
+      <Text style={styles.trailerBtnText}>Watch Trailer</Text>
+    </TouchableOpacity>
+  );
+}
+
+function DetailStreamMainButton({ onPress }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity
+      style={[styles.btnPrimaryStream, focused && styles.btnPrimaryStreamFocused]}
+      activeOpacity={0.85}
+      hasTVPreferredFocus={isTV}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    >
+      <MaterialIcons name="play-arrow" size={30} color="#fff" />
+      <View>
+        <Text style={styles.btnPrimaryTitle}>STREAM VIDEO</Text>
+        <Text style={styles.btnPrimarySub}>Choose WebTor, TorrServer, or VLC</Text>
+      </View>
+      {focused ? (
+        <View style={styles.streamPointerPill}>
+          <Text style={styles.streamPointerPillText}>PRESS OK</Text>
+        </View>
+      ) : (
+        <MaterialIcons name="chevron-right" size={24} color="#fff" style={{ marginLeft: 'auto' }} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function DetailCopyMagnetButton({ copied, onPress }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity
+      style={[
+        styles.btnCopyMagnet,
+        copied && styles.btnCopiedActive,
+        focused && styles.btnCopyMagnetFocused,
+      ]}
+      activeOpacity={0.8}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    >
+      <MaterialIcons
+        name={copied ? 'check-circle' : 'content-copy'}
+        size={20}
+        color={copied ? COLORS.seeder : COLORS.primaryGlow}
+      />
+      <Text style={[styles.btnCopyText, copied && { color: COLORS.seeder }]}>
+        {copied ? 'Magnet Link Copied to Clipboard!' : 'Copy Magnet Link'}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function DetailMagnetBox({ magnet, onPress }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity
+      style={[styles.magnetBox, focused && styles.magnetBoxFocused]}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    >
+      <Text style={styles.magnetText} numberOfLines={2}>{magnet}</Text>
+      <Text style={styles.tapToCopyText}>Tap to copy URI</Text>
+    </TouchableOpacity>
+  );
+}
