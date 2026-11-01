@@ -7,6 +7,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
+import { useTVFocus, playTVSelectFeedback } from '../hooks';
 
 export function LoadingSpinner({ message = 'Loading...' }) {
   return (
@@ -49,6 +50,7 @@ export function EmptyView({ message = 'No results found', icon = 'search-off' })
 }
 
 export function SectionHeader({ title, icon, onSeeAll }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionLeft}>
@@ -56,7 +58,12 @@ export function SectionHeader({ title, icon, onSeeAll }) {
         <Text style={styles.sectionTitle}>{title}</Text>
       </View>
       {onSeeAll && (
-        <TouchableOpacity onPress={onSeeAll} style={styles.seeAll}>
+        <TouchableOpacity
+          onPress={() => { playTVSelectFeedback(); onSeeAll(); }}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          style={[styles.seeAll, focused && styles.seeAllFocused]}
+        >
           <Text style={styles.seeAllText}>See All</Text>
           <MaterialIcons name="chevron-right" size={16} color={COLORS.primaryGlow} />
         </TouchableOpacity>
@@ -143,7 +150,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    borderRadius: 9,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
+  seeAllFocused: { backgroundColor: COLORS.primary, borderWidth: 2, borderColor: '#FFFFFF', transform: [{ scale: 1.06 }] },
   seeAllText: {
     color: COLORS.primaryGlow,
     fontSize: 12,

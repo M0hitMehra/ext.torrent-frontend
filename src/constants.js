@@ -15,18 +15,18 @@ export const CATEGORIES = [
 
 // Neumorphism Theme Colors (Dark Mode Obsidian/Slate with High-Contrast TV Focus)
 export const COLORS = {
-  bg:            '#0F1015',
-  surface:       '#161821',
-  surfaceElevated: '#1D202C',
-  card:          '#1C1F2B',
-  cardHighlight: '#2B3042', // Top-left light reflection (soft bevel)
-  cardShadow:    '#08090C', // Bottom-right dark drop shadow
-  input:         '#13141B',
-  inputBorder:   '#242838',
-  primary:       '#6C5CE7',
-  primaryDark:   '#5042CC',
-  primaryGlow:   '#A29BFE',
-  secondary:     '#00D2D3',
+  bg:            '#090B11',
+  surface:       '#111521',
+  surfaceElevated: '#1A2030',
+  card:          '#171C29',
+  cardHighlight: '#2B3447', // Top-left light reflection (soft bevel)
+  cardShadow:    '#05070B', // Bottom-right dark drop shadow
+  input:         '#0E121C',
+  inputBorder:   '#283044',
+  primary:       '#E85B43',
+  primaryDark:   '#C94231',
+  primaryGlow:   '#FF9D82',
+  secondary:     '#6DC9D1',
   accent:        '#FF5252',
   text:          '#FFFFFF',
   textSub:       '#AAB0C5',

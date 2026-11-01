@@ -72,7 +72,7 @@ export default function HomeScreen({ navigation }) {
             </View>
             <View>
               <Text style={styles.appTitle}>ExtTorrent</Text>
-              <Text style={styles.appSub}>Neumorphic TV & Mobile</Text>
+              <Text style={styles.appSub}>MOVIES · SERIES · MORE</Text>
             </View>
           </View>
 
@@ -86,6 +86,33 @@ export default function HomeScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
+          {isTV && (
+            <View style={styles.tvHero}>
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroEyebrow}>YOUR TORRENT LIBRARY</Text>
+                <Text style={styles.heroTitle}>Find your next watch.</Text>
+                <Text style={styles.heroBody}>Use the remote to move between Search, Home and Browse. Press OK to choose.</Text>
+              </View>
+              <View style={styles.heroActions}>
+                <HeroAction
+                  icon="search"
+                  label="Search titles"
+                  onPress={() => setKeyboardVisible(true)}
+                  primary
+                />
+                <HeroAction
+                  icon="explore"
+                  label="Browse catalog"
+                  onPress={() => handleCategoryPress(selectedCategory)}
+                />
+              </View>
+              <View style={styles.remoteHint}>
+                <MaterialIcons name="gamepad" size={17} color={COLORS.primaryGlow} />
+                <Text style={styles.remoteHintText}>↑ ↓ MOVE   ·   OK SELECT   ·   BACK RETURN</Text>
+              </View>
+            </View>
+          )}
+
           {/* Categories Section */}
           <SectionHeader title="Browse Categories" icon="grid-view" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catRow}>
@@ -118,10 +145,14 @@ export default function HomeScreen({ navigation }) {
                 <TorrentCard
                   torrent={item}
                   onPress={handleTorrentPress}
-                  hasPreferredFocus={index === 0 && isTV}
+                  hasPreferredFocus={false}
+                  style={isTV ? styles.tvTorrentCard : undefined}
                 />
               )}
-              scrollEnabled={false}
+              horizontal={isTV}
+              showsHorizontalScrollIndicator={false}
+              scrollEnabled={isTV}
+              contentContainerStyle={isTV ? styles.tvShelf : undefined}
               ListEmptyComponent={
                 <View style={styles.emptyCard}>
                   <Text style={styles.emptyText}>Loading torrents from indexer...</Text>
@@ -143,9 +174,12 @@ export default function HomeScreen({ navigation }) {
               data={latestData?.torrents?.slice(0, 8) || []}
               keyExtractor={(item, i) => item.id || String(i)}
               renderItem={({ item }) => (
-                <TorrentCard torrent={item} onPress={handleTorrentPress} />
+                <TorrentCard torrent={item} onPress={handleTorrentPress} style={isTV ? styles.tvTorrentCard : undefined} />
               )}
-              scrollEnabled={false}
+              horizontal={isTV}
+              showsHorizontalScrollIndicator={false}
+              scrollEnabled={isTV}
+              contentContainerStyle={isTV ? styles.tvShelf : undefined}
             />
           )}
         </ScrollView>
@@ -166,6 +200,9 @@ function SearchTriggerButton({ onPress }) {
 
   return (
     <TouchableOpacity
+      hasTVPreferredFocus={isTV}
+      accessibilityRole="button"
+      accessibilityLabel="Search titles. Press OK to open search."
       style={[styles.searchBarBtn, focused && styles.searchBarBtnFocused]}
       activeOpacity={0.8}
       onPress={() => {
@@ -188,6 +225,24 @@ function SearchTriggerButton({ onPress }) {
           <Text style={styles.searchPointerText}>SELECT</Text>
         </View>
       )}
+    </TouchableOpacity>
+  );
+}
+
+function HeroAction({ icon, label, onPress, primary }) {
+  const { focused, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity
+      hasTVPreferredFocus={false}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      activeOpacity={0.85}
+      style={[styles.heroAction, primary && styles.heroActionPrimary, focused && styles.heroActionFocused]}
+    >
+      <MaterialIcons name={icon} size={20} color="#fff" />
+      <Text style={styles.heroActionText}>{label}</Text>
+      <MaterialIcons name="chevron-right" size={20} color="#fff" />
     </TouchableOpacity>
   );
 }
@@ -244,7 +299,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 44 : 16,
+    paddingTop: Platform.OS === 'android' ? (isTV ? 18 : 44) : 16,
     paddingBottom: 14,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1.5,
@@ -303,6 +358,30 @@ const styles = StyleSheet.create({
   },
   searchPointerText: { color: '#000000', fontSize: 9, fontWeight: '900' },
   scroll: { padding: 18, paddingBottom: 60 },
+  tvHero: {
+    backgroundColor: '#20233A',
+    borderRadius: 24,
+    padding: 26,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#353B5A',
+    minHeight: 210,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  heroCopy: { maxWidth: '65%' },
+  heroEyebrow: { color: COLORS.primaryGlow, fontSize: 12, fontWeight: '900', letterSpacing: 2, marginBottom: 8 },
+  heroTitle: { color: '#fff', fontSize: 32, fontWeight: '900', marginBottom: 8 },
+  heroBody: { color: '#C3C7D9', fontSize: 15, lineHeight: 22, maxWidth: 470 },
+  heroActions: { position: 'absolute', right: 24, top: 24, bottom: 54, width: 230, justifyContent: 'center', gap: 10 },
+  heroAction: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#34384E', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 2, borderColor: 'transparent' },
+  heroActionPrimary: { backgroundColor: COLORS.primary },
+  heroActionFocused: { borderColor: '#fff', transform: [{ scale: 1.04 }], shadowColor: COLORS.primaryGlow, shadowOpacity: 0.8, shadowRadius: 14, elevation: 12 },
+  heroActionText: { flex: 1, color: '#fff', fontSize: 15, fontWeight: '800' },
+  remoteHint: { position: 'absolute', bottom: 16, left: 26, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  remoteHintText: { color: '#C5C8D8', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  tvShelf: { paddingVertical: 8, paddingHorizontal: 4 },
+  tvTorrentCard: { width: 330, marginRight: 14 },
   catRow: { marginBottom: 18, marginHorizontal: -4 },
   catChip: {
     flexDirection: 'row',

@@ -248,6 +248,9 @@ function TVSearchInput({ query, onPress }) {
 
   return (
     <TouchableOpacity
+      hasTVPreferredFocus={isTV}
+      accessibilityRole="button"
+      accessibilityLabel={query ? `Search query ${query}. Press OK to edit.` : 'Search titles. Press OK to open the TV keyboard.'}
       style={[styles.tvInput, focused && styles.tvInputFocused]}
       onPress={() => {
         playTVSelectFeedback();

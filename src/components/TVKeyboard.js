@@ -119,6 +119,7 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
               </View>
             ))}
           </View>
+          <Text style={styles.keyboardHelp}>Use ↑ ↓ ← → to choose a key · Press OK to enter it · Choose SEARCH when ready</Text>
         </View>
       </View>
     </Modal>
@@ -249,5 +250,12 @@ const styles = StyleSheet.create({
   keySearchText: {
     color: '#FFFFFF',
     fontWeight: '900',
+  },
+  keyboardHelp: {
+    color: COLORS.textSub,
+    fontSize: isTV ? 13 : 11,
+    textAlign: 'center',
+    marginTop: 16,
+    fontWeight: '600',
   },
 });

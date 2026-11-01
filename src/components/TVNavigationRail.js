@@ -5,7 +5,7 @@
  * complete with high-contrast Neumorphic focus states and audio-haptic feedback.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
@@ -45,7 +45,7 @@ export function TVNavigationRail({ currentRoute, onNavigate }) {
       {/* Bottom TV Pointer Legend */}
       <View style={styles.bottomPill}>
         <View style={styles.activeDot} />
-        <Text style={styles.bottomPillText}>TV MODE</Text>
+        <Text style={styles.bottomPillText}>↑↓ MOVE · OK OPEN</Text>
       </View>
     </View>
   );
@@ -93,7 +93,7 @@ function RailButton({ item, isActive, onPress }) {
 
 const styles = StyleSheet.create({
   railContainer: {
-    width: 86,
+    width: 104,
     backgroundColor: COLORS.surface,
     alignItems: 'center',
     paddingVertical: 20,
