@@ -11,6 +11,8 @@ import SearchScreen        from '../screens/SearchScreen';
 import BrowseScreen        from '../screens/BrowseScreen';
 import TorrentDetailScreen from '../screens/TorrentDetailScreen';
 import PlayerScreen        from '../screens/PlayerScreen';
+import SettingsScreen      from '../screens/SettingsScreen';
+import { useAppSettings, getTheme } from '../utils/settings';
 
 const Stack = createStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -26,26 +28,28 @@ const screenOptions = {
 
 // Bottom tabs (phone layout)
 function TabNavigator() {
+  const { settings } = useAppSettings();
+  const palette = getTheme(settings.mode);
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.cardHighlight,
+          backgroundColor: palette.surface,
+          borderTopColor: palette.border,
           borderTopWidth: 1,
           height: 60,
           paddingBottom: 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: COLORS.primaryGlow,
-        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: palette.textMuted,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '700',
         },
         tabBarIcon: ({ color, size, focused }) => {
-          const icons = { Home: 'home', Search: 'search', Browse: 'explore' };
+          const icons = { Home: 'home', Search: 'search', Browse: 'explore', Settings: 'settings' };
           return <MaterialIcons name={icons[route.name] || 'home'} size={focused ? 24 : 22} color={color} />;
         },
       })}
@@ -53,46 +57,43 @@ function TabNavigator() {
       <Tab.Screen name="Home"   component={HomeScreen}   />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Browse" component={BrowseScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
 
-// TV uses a single flat stack (no bottom tabs on TV)
-function TVNavigator() {
-  return (
-    <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="Home"   component={HomeScreen}   />
-      <Stack.Screen name="Search" component={SearchScreen} />
-      <Stack.Screen name="Browse" component={BrowseScreen} />
-      <Stack.Screen name="TorrentDetail" component={TorrentDetailScreen} />
-      <Stack.Screen name="Player" component={PlayerScreen}
-        options={{ presentation: 'fullScreenModal' }}
-      />
-    </Stack.Navigator>
-  );
-}
-
 export default function AppNavigator() {
+  const { settings } = useAppSettings();
+  const palette = getTheme(settings.mode);
+  const themedScreenOptions = { ...screenOptions, cardStyle: { backgroundColor: palette.bg } };
   return (
     <NavigationContainer
       theme={{
-        dark: true,
+        dark: settings.mode !== 'light',
         colors: {
           primary: COLORS.primary,
-          background: COLORS.bg,
-          card: COLORS.surface,
-          text: COLORS.text,
-          border: COLORS.border,
+          background: palette.bg,
+          card: palette.surface,
+          text: palette.text,
+          border: palette.border,
           notification: COLORS.accent,
         },
       }}
     >
       {isTV ? (
-        <TVNavigator />
+        <Stack.Navigator screenOptions={themedScreenOptions}>
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="Search" component={SearchScreen} />
+          <Stack.Screen name="Browse" component={BrowseScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="TorrentDetail" component={TorrentDetailScreen} />
+          <Stack.Screen name="Player" component={PlayerScreen} options={{ presentation: 'fullScreenModal' }} />
+        </Stack.Navigator>
       ) : (
-        <Stack.Navigator screenOptions={screenOptions}>
+        <Stack.Navigator screenOptions={themedScreenOptions}>
           <Stack.Screen name="Tabs" component={TabNavigator} />
           <Stack.Screen name="TorrentDetail" component={TorrentDetailScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="Player" component={PlayerScreen}
             options={{ presentation: 'fullScreenModal' }}
           />

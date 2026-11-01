@@ -10,11 +10,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
 
 export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
 
   if (!torrent) return null;
 
@@ -38,6 +41,8 @@ export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false
         styles.card,
         style,
         focused && styles.cardFocused,
+        { backgroundColor: theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
+        focused && focusStyle,
       ]}
     >
       {/* ─── YOUTUBE TV STYLE POINTER BANNER (When focused) ─── */}
@@ -77,7 +82,7 @@ export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false
 
       {/* Torrent Title */}
       <Text
-        style={[styles.title, focused && styles.titleFocused]}
+        style={[styles.title, { color: theme.text }, focused && styles.titleFocused]}
         numberOfLines={isTV ? 2 : 3}
       >
         {torrent.title || 'Untitled Torrent'}

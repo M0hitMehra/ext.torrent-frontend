@@ -21,10 +21,13 @@ import { fetchMediaMetadata } from '../api/metaApi';
 import { PlayerSelectorModal } from '../components/PlayerSelectorModal';
 import { LoadingSpinner, ErrorView } from '../components/Common';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
 
 export default function TorrentDetailScreen({ navigation, route }) {
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
   const { torrent: initialTorrent } = route.params;
 
   const [detail, setDetail] = useState(initialTorrent);
@@ -115,11 +118,11 @@ export default function TorrentDetailScreen({ navigation, route }) {
   }, [metadata]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Top Navigation Bar */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <DetailBackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
           {detail?.title || 'Torrent Details'}
         </Text>
         <DetailCopyHeaderButton copied={copied} onPress={handleCopyMagnet} />
@@ -128,14 +131,14 @@ export default function TorrentDetailScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* ─── POSTER / BACKDROP CARD (Only rendered if available) ─── */}
         {metadata && metadata.poster ? (
-          <View style={styles.posterCard}>
+          <View style={[styles.posterCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Image
               source={{ uri: metadata.poster }}
               style={styles.posterImage}
               resizeMode="cover"
             />
             <View style={styles.posterInfo}>
-              <Text style={styles.metaTitle} numberOfLines={2}>{metadata.name}</Text>
+              <Text style={[styles.metaTitle, { color: theme.text }]} numberOfLines={2}>{metadata.name}</Text>
               
               <View style={styles.posterMetaRow}>
                 {metadata.year && (
@@ -166,7 +169,7 @@ export default function TorrentDetailScreen({ navigation, route }) {
         ) : null}
 
         {/* ─── TITLE & BADGE BLOCK ─── */}
-        <View style={styles.neuBlock}>
+        <View style={[styles.neuBlock, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <View style={styles.catBadgeRow}>
             <View style={styles.catBadge}>
               <MaterialIcons name="local-offer" size={12} color={COLORS.primaryGlow} />
@@ -177,7 +180,7 @@ export default function TorrentDetailScreen({ navigation, route }) {
             )}
           </View>
 
-          <Text style={styles.torrentTitle}>{detail.title}</Text>
+          <Text style={[styles.torrentTitle, { color: theme.text }]}>{detail.title}</Text>
 
           {/* Quick Metrics */}
           <View style={styles.statsGrid}>
@@ -218,9 +221,9 @@ export default function TorrentDetailScreen({ navigation, route }) {
 
         {/* ─── DESCRIPTION (If available) ─── */}
         {(metadata?.description || detail.description) ? (
-          <View style={styles.neuBlock}>
-            <Text style={styles.sectionHeading}>About this Release</Text>
-            <Text style={styles.descriptionText} numberOfLines={8}>
+          <View style={[styles.neuBlock, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.sectionHeading, { color: theme.text }]}>About this Release</Text>
+            <Text style={[styles.descriptionText, { color: theme.textSub }]} numberOfLines={8}>
               {metadata?.description || detail.description}
             </Text>
           </View>
@@ -228,8 +231,8 @@ export default function TorrentDetailScreen({ navigation, route }) {
 
         {/* ─── FILE LIST (If available) ─── */}
         {detail.files && detail.files.length > 0 && (
-          <View style={styles.neuBlock}>
-            <Text style={styles.sectionHeading}>Included Files ({detail.files.length})</Text>
+          <View style={[styles.neuBlock, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.sectionHeading, { color: theme.text }]}>Included Files ({detail.files.length})</Text>
             {detail.files.slice(0, 15).map((f, i) => (
               <View key={i} style={styles.fileRow}>
                 <MaterialIcons name="insert-drive-file" size={14} color={COLORS.textMuted} />
@@ -241,8 +244,8 @@ export default function TorrentDetailScreen({ navigation, route }) {
 
         {/* ─── MAGNET PREVIEW BOX ─── */}
         {magnet && (
-          <View style={styles.neuBlock}>
-            <Text style={styles.sectionHeading}>Raw Magnet URI</Text>
+          <View style={[styles.neuBlock, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.sectionHeading, { color: theme.text }]}>Raw Magnet URI</Text>
             <DetailMagnetBox magnet={magnet} onPress={handleCopyMagnet} />
           </View>
         )}
@@ -548,10 +551,10 @@ const styles = StyleSheet.create({
 });
 
 function DetailBackButton({ onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
     <TouchableOpacity
-      style={[styles.backBtn, focused && styles.backBtnFocused]}
+      style={[styles.backBtn, focused && styles.backBtnFocused, focused && focusStyle]}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
       onBlur={onBlur}
@@ -562,10 +565,10 @@ function DetailBackButton({ onPress }) {
 }
 
 function DetailCopyHeaderButton({ copied, onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
     <TouchableOpacity
-      style={[styles.shareBtn, focused && styles.shareBtnFocused]}
+      style={[styles.shareBtn, focused && styles.shareBtnFocused, focused && focusStyle]}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
       onBlur={onBlur}
@@ -580,10 +583,10 @@ function DetailCopyHeaderButton({ copied, onPress }) {
 }
 
 function DetailTrailerButton({ onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
     <TouchableOpacity
-      style={[styles.trailerBtn, focused && styles.trailerBtnFocused]}
+      style={[styles.trailerBtn, focused && styles.trailerBtnFocused, focused && focusStyle]}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
       onBlur={onBlur}
@@ -595,10 +598,10 @@ function DetailTrailerButton({ onPress }) {
 }
 
 function DetailStreamMainButton({ onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
     <TouchableOpacity
-      style={[styles.btnPrimaryStream, focused && styles.btnPrimaryStreamFocused]}
+      style={[styles.btnPrimaryStream, focused && styles.btnPrimaryStreamFocused, focused && focusStyle]}
       activeOpacity={0.85}
       hasTVPreferredFocus={isTV}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
@@ -622,13 +625,14 @@ function DetailStreamMainButton({ onPress }) {
 }
 
 function DetailCopyMagnetButton({ copied, onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
     <TouchableOpacity
       style={[
         styles.btnCopyMagnet,
         copied && styles.btnCopiedActive,
         focused && styles.btnCopyMagnetFocused,
+        focused && focusStyle,
       ]}
       activeOpacity={0.8}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
@@ -648,10 +652,10 @@ function DetailCopyMagnetButton({ copied, onPress }) {
 }
 
 function DetailMagnetBox({ magnet, onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
     <TouchableOpacity
-      style={[styles.magnetBox, focused && styles.magnetBoxFocused]}
+      style={[styles.magnetBox, focused && styles.magnetBoxFocused, focused && focusStyle]}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
       onBlur={onBlur}

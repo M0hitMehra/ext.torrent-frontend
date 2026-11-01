@@ -10,20 +10,24 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 const NAV_ITEMS = [
   { id: 'Search', icon: 'search',        label: 'Search' },
   { id: 'Home',   icon: 'home',          label: 'Home' },
   { id: 'Browse', icon: 'explore',       label: 'Browse' },
+  { id: 'Settings', icon: 'settings',    label: 'Settings' },
 ];
 
 export function TVNavigationRail({ currentRoute, onNavigate }) {
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
   if (!Platform.isTV) return null;
 
   return (
-    <View style={styles.railContainer}>
+    <View style={[styles.railContainer, { backgroundColor: theme.surface, borderRightColor: theme.border }]}>
       {/* App Logo Emblem */}
-      <View style={styles.logoBadge}>
+      <View style={[styles.logoBadge, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <MaterialIcons name="local-movies" size={26} color={COLORS.primaryGlow} />
       </View>
 
@@ -43,7 +47,7 @@ export function TVNavigationRail({ currentRoute, onNavigate }) {
       </View>
 
       {/* Bottom TV Pointer Legend */}
-      <View style={styles.bottomPill}>
+      <View style={[styles.bottomPill, { backgroundColor: theme.input, borderColor: theme.border }]}>
         <View style={styles.activeDot} />
         <Text style={styles.bottomPillText}>↑↓ MOVE · OK OPEN</Text>
       </View>
@@ -52,15 +56,20 @@ export function TVNavigationRail({ currentRoute, onNavigate }) {
 }
 
 function RailButton({ item, isActive, onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
 
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       style={[
         styles.railBtn,
+        { backgroundColor: isActive ? theme.surfaceElevated : theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
         isActive && styles.railBtnActive,
+        { backgroundColor: isActive ? theme.surfaceElevated : theme.card },
         focused && styles.railBtnFocused,
+        focused && focusStyle,
       ]}
       onPress={onPress}
       onFocus={onFocus}
@@ -69,13 +78,15 @@ function RailButton({ item, isActive, onPress }) {
       <MaterialIcons
         name={item.icon}
         size={24}
-        color={focused ? '#FFFFFF' : isActive ? COLORS.primaryGlow : COLORS.textMuted}
+        color={focused ? '#FFFFFF' : isActive ? (settings.mode === 'light' ? COLORS.primary : COLORS.primaryGlow) : theme.textMuted}
       />
       <Text
         style={[
           styles.railBtnLabel,
+          { color: isActive ? COLORS.primaryGlow : theme.textMuted },
           isActive && styles.railBtnLabelActive,
           focused && styles.railBtnLabelFocused,
+          { color: focused ? '#fff' : isActive ? (settings.mode === 'light' ? COLORS.primary : COLORS.primaryGlow) : theme.textMuted },
         ]}
       >
         {item.label}
@@ -96,7 +107,7 @@ const styles = StyleSheet.create({
     width: 104,
     backgroundColor: COLORS.surface,
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 16,
     borderRightWidth: 1.5,
     borderRightColor: COLORS.cardHighlight,
     justifyContent: 'space-between',
@@ -121,13 +132,13 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   buttonsGroup: {
-    gap: 16,
+    gap: 11,
     alignItems: 'center',
     width: '100%',
   },
   railBtn: {
-    width: 66,
-    height: 66,
+    width: 78,
+    height: 68,
     borderRadius: 18,
     backgroundColor: COLORS.card,
     alignItems: 'center',

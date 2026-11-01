@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { NativeModules, Platform } from 'react-native';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 const { NativeClipboard } = NativeModules;
 
@@ -61,6 +62,13 @@ export function useFetch(fetchFn, deps = [], options = {}) {
  */
 export function useTVFocus(onCustomFocus) {
   const [focused, setFocused] = useState(false);
+  const { settings } = useAppSettings();
+  const palette = getTheme(settings.mode);
+  const focusStyle = {
+    borderColor: settings.focusColor,
+    shadowColor: settings.focusColor,
+    ...(palette.glass ? { backgroundColor: focused ? `${settings.focusColor}28` : palette.card } : {}),
+  };
 
   const onFocus = useCallback(() => {
     setFocused(true);
@@ -74,6 +82,7 @@ export function useTVFocus(onCustomFocus) {
 
   return {
     focused,
+    focusStyle,
     onFocus,
     onBlur,
   };

@@ -12,6 +12,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
 
@@ -24,7 +25,9 @@ const TV_KEYBOARD_ROWS = [
 ];
 
 function TVKey({ label, onPress, isFirst }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
   const isWide = ['SPACE','CLEAR','SEARCH'].includes(label);
   const isSearch = label === 'SEARCH';
 
@@ -38,9 +41,11 @@ function TVKey({ label, onPress, isFirst }) {
       hasTVPreferredFocus={isFirst}
       style={[
         styles.key,
+        { backgroundColor: theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
         isWide && styles.keyWide,
         isSearch && styles.keySearch,
         focused && styles.keyFocused,
+        focused && focusStyle,
       ]}
       onPress={handlePress}
       onFocus={onFocus}
@@ -50,6 +55,7 @@ function TVKey({ label, onPress, isFirst }) {
       <Text
         style={[
           styles.keyText,
+          { color: theme.text },
           isSearch && styles.keySearchText,
           focused && styles.keyTextFocused,
         ]}
@@ -61,6 +67,9 @@ function TVKey({ label, onPress, isFirst }) {
 }
 
 export function TVKeyboard({ visible, onClose, onSearch }) {
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
+  const closeFocus = useTVFocus();
   const [text, setText] = useState('');
 
   const handleKey = useCallback((key) => {
@@ -83,23 +92,23 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.keyboardContainer}>
+      <View style={[styles.overlay, settings.mode === 'light' && { backgroundColor: 'rgba(34,47,68,0.28)' }]}>
+        <View style={[styles.keyboardContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {/* Display & Pointer Status */}
           <View style={styles.displayRow}>
-            <View style={styles.inputPill}>
+            <View style={[styles.inputPill, { backgroundColor: theme.input, borderColor: theme.border }]}>
               <MaterialIcons name="search" size={22} color={COLORS.primaryGlow} />
-              <Text style={[styles.displayText, !text && styles.displayTextPlaceholder]} numberOfLines={1}>
+              <Text style={[styles.displayText, { color: text ? theme.text : theme.textMuted }, !text && styles.displayTextPlaceholder]} numberOfLines={1}>
                 {text || 'Type with TV Remote D-Pad...'}
               </Text>
               {text.length > 0 && (
-                <TouchableOpacity onPress={() => setText('')} style={styles.clearMiniBtn}>
+                <KeyboardClearButton onPress={() => setText('')} theme={theme}>
                   <MaterialIcons name="close" size={18} color={COLORS.textMuted} />
-                </TouchableOpacity>
+                </KeyboardClearButton>
               )}
             </View>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} onFocus={closeFocus.onFocus} onBlur={closeFocus.onBlur} style={[styles.closeBtn, { backgroundColor: theme.card }, closeFocus.focused && styles.keyFocused, closeFocus.focused && closeFocus.focusStyle]}>
               <MaterialIcons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -119,10 +128,19 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
               </View>
             ))}
           </View>
-          <Text style={styles.keyboardHelp}>Use ↑ ↓ ← → to choose a key · Press OK to enter it · Choose SEARCH when ready</Text>
+          <Text style={[styles.keyboardHelp, { color: theme.textSub }]}>Use ↑ ↓ ← → to choose a key · Press OK to enter it · Choose SEARCH when ready</Text>
         </View>
       </View>
     </Modal>
+  );
+}
+
+function KeyboardClearButton({ onPress, children, theme }) {
+  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity onPress={() => { playTVSelectFeedback(); onPress(); }} onFocus={onFocus} onBlur={onBlur} style={[styles.clearMiniBtn, { backgroundColor: theme.card }, focused && styles.keyFocused, focused && focusStyle]}>
+      {children}
+    </TouchableOpacity>
   );
 }
 

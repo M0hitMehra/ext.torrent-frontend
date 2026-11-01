@@ -21,10 +21,13 @@ import { TVKeyboard } from '../components/TVKeyboard';
 import { TVNavigationRail } from '../components/TVNavigationRail';
 import { LoadingSpinner, ErrorView, SectionHeader } from '../components/Common';
 import { useFetch, useTVFocus, playTVSelectFeedback } from '../hooks';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
 
 export default function HomeScreen({ navigation }) {
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -53,7 +56,7 @@ export default function HomeScreen({ navigation }) {
   }, [navigation]);
 
   return (
-    <View style={styles.outerContainer}>
+    <View style={[styles.outerContainer, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
       {/* ─── YOUTUBE TV LEFT NAVIGATION RAIL ─── */}
@@ -63,16 +66,16 @@ export default function HomeScreen({ navigation }) {
       />
 
       {/* ─── MAIN CONTENT AREA ─── */}
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, { backgroundColor: theme.bg }]}>
         {/* ─── NEUMORPHIC TOP BAR ─── */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.headerLeft}>
-            <View style={styles.logoCircle}>
+            <View style={[styles.logoCircle, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <MaterialIcons name="local-movies" size={24} color={COLORS.primaryGlow} />
             </View>
             <View>
-              <Text style={styles.appTitle}>ExtTorrent</Text>
-              <Text style={styles.appSub}>MOVIES · SERIES · MORE</Text>
+              <Text style={[styles.appTitle, { color: theme.text }]}>ExtTorrent</Text>
+              <Text style={[styles.appSub, { color: theme.textMuted }]}>MOVIES · SERIES · MORE</Text>
             </View>
           </View>
 
@@ -87,11 +90,11 @@ export default function HomeScreen({ navigation }) {
           contentContainerStyle={styles.scroll}
         >
           {isTV && (
-            <View style={styles.tvHero}>
+            <View style={[styles.tvHero, { backgroundColor: settings.mode === 'light' ? 'rgba(255,255,255,0.72)' : '#20233A', borderColor: theme.border }]}>
               <View style={styles.heroCopy}>
                 <Text style={styles.heroEyebrow}>YOUR TORRENT LIBRARY</Text>
-                <Text style={styles.heroTitle}>Find your next watch.</Text>
-                <Text style={styles.heroBody}>Use the remote to move between Search, Home and Browse. Press OK to choose.</Text>
+                <Text style={[styles.heroTitle, { color: theme.text }]}>Find your next watch.</Text>
+                <Text style={[styles.heroBody, { color: theme.textSub }]}>Use the remote to move between Search, Home and Browse. Press OK to choose.</Text>
               </View>
               <View style={styles.heroActions}>
                 <HeroAction
@@ -196,14 +199,16 @@ export default function HomeScreen({ navigation }) {
 }
 
 function SearchTriggerButton({ onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
 
   return (
     <TouchableOpacity
       hasTVPreferredFocus={isTV}
       accessibilityRole="button"
       accessibilityLabel="Search titles. Press OK to open search."
-      style={[styles.searchBarBtn, focused && styles.searchBarBtnFocused]}
+      style={[styles.searchBarBtn, { backgroundColor: theme.input, borderColor: theme.border }, focused && styles.searchBarBtnFocused, focused && focusStyle]}
       activeOpacity={0.8}
       onPress={() => {
         playTVSelectFeedback();
@@ -217,7 +222,7 @@ function SearchTriggerButton({ onPress }) {
         size={20}
         color={focused ? '#FFFFFF' : COLORS.primaryGlow}
       />
-      <Text style={[styles.searchBtnText, focused && styles.searchBtnTextFocused]}>
+      <Text style={[styles.searchBtnText, { color: focused ? '#fff' : theme.textMuted }, focused && styles.searchBtnTextFocused]}>
         {focused ? 'PRESS OK TO TYPE' : 'Search movies, series...'}
       </Text>
       {focused && (
@@ -230,7 +235,9 @@ function SearchTriggerButton({ onPress }) {
 }
 
 function HeroAction({ icon, label, onPress, primary }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
   return (
     <TouchableOpacity
       hasTVPreferredFocus={false}
@@ -238,7 +245,7 @@ function HeroAction({ icon, label, onPress, primary }) {
       onFocus={onFocus}
       onBlur={onBlur}
       activeOpacity={0.85}
-      style={[styles.heroAction, primary && styles.heroActionPrimary, focused && styles.heroActionFocused]}
+      style={[styles.heroAction, { backgroundColor: primary ? COLORS.primary : theme.card }, focused && styles.heroActionFocused, focused && focusStyle]}
     >
       <MaterialIcons name={icon} size={20} color="#fff" />
       <Text style={styles.heroActionText}>{label}</Text>
@@ -248,14 +255,18 @@ function HeroAction({ icon, label, onPress, primary }) {
 }
 
 function CategoryChip({ cat, selected, onPress, onLongPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
 
   return (
     <TouchableOpacity
       style={[
         styles.catChip,
+        { backgroundColor: selected ? COLORS.primary : theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
         selected && styles.catChipSelected,
         focused && styles.catChipFocused,
+        focused && focusStyle,
       ]}
       onPress={() => {
         playTVSelectFeedback();
@@ -274,6 +285,7 @@ function CategoryChip({ cat, selected, onPress, onLongPress }) {
       <Text
         style={[
           styles.catLabel,
+          { color: selected || focused ? '#fff' : theme.textSub },
           selected && styles.catLabelSelected,
           focused && styles.catLabelFocused,
         ]}

@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 export function LoadingSpinner({ message = 'Loading...' }) {
   return (
@@ -50,19 +51,21 @@ export function EmptyView({ message = 'No results found', icon = 'search-off' })
 }
 
 export function SectionHeader({ title, icon, onSeeAll }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionLeft}>
         {icon && <MaterialIcons name={icon} size={18} color={COLORS.primaryGlow} />}
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
       </View>
       {onSeeAll && (
         <TouchableOpacity
           onPress={() => { playTVSelectFeedback(); onSeeAll(); }}
           onFocus={onFocus}
           onBlur={onBlur}
-          style={[styles.seeAll, focused && styles.seeAllFocused]}
+          style={[styles.seeAll, focused && styles.seeAllFocused, focused && focusStyle]}
         >
           <Text style={styles.seeAllText}>See All</Text>
           <MaterialIcons name="chevron-right" size={16} color={COLORS.primaryGlow} />

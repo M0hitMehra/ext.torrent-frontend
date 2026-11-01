@@ -12,10 +12,13 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
 
 export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelectInApp }) {
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
   if (!torrent || !magnet) return null;
 
   const handleWebTorInApp = () => {
@@ -67,7 +70,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-        <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+        <View style={[styles.sheet, { backgroundColor: theme.surface, borderColor: theme.border }]} onStartShouldSetResponder={() => true}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -75,8 +78,8 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
                 <MaterialIcons name="play-circle-filled" size={26} color={COLORS.primaryGlow} />
               </View>
               <View style={styles.headerTitleWrap}>
-                <Text style={styles.headerTitle}>Select Streaming Player</Text>
-                <Text style={styles.headerSub} numberOfLines={1}>{torrent.title}</Text>
+              <Text style={[styles.headerTitle, { color: theme.text }]}>Select Streaming Player</Text>
+              <Text style={[styles.headerSub, { color: theme.textMuted }]} numberOfLines={1}>{torrent.title}</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
@@ -133,7 +136,9 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
 }
 
 function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress, recommended, isFirst }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
 
   return (
     <TouchableOpacity
@@ -143,6 +148,8 @@ function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress,
         styles.tile,
         recommended && styles.tileRecommended,
         focused && styles.tileFocused,
+        focused && focusStyle,
+        { backgroundColor: theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
       ]}
       onPress={onPress}
       onFocus={onFocus}
@@ -153,14 +160,14 @@ function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress,
       </View>
       <View style={styles.tileTextWrap}>
         <View style={styles.tileTitleRow}>
-          <Text style={[styles.tileTitle, focused && styles.tileTitleFocused]}>{title}</Text>
+          <Text style={[styles.tileTitle, { color: theme.text }, focused && styles.tileTitleFocused]}>{title}</Text>
           {badge && (
             <View style={[styles.badge, recommended && styles.badgeRec, focused && styles.badgeFocused]}>
               <Text style={[styles.badgeText, focused && styles.badgeTextFocused]}>{badge}</Text>
             </View>
           )}
         </View>
-        <Text style={[styles.tileDesc, focused && styles.tileDescFocused]} numberOfLines={2}>
+        <Text style={[styles.tileDesc, { color: theme.textSub }, focused && styles.tileDescFocused]} numberOfLines={2}>
           {description}
         </Text>
       </View>

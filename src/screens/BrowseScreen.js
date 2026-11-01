@@ -16,11 +16,14 @@ import { TorrentCard } from '../components/TorrentCard';
 import { TVNavigationRail } from '../components/TVNavigationRail';
 import { LoadingSpinner, ErrorView, EmptyView } from '../components/Common';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
 const TABS = ['Browse', 'Trending', 'Latest'];
 
 export default function BrowseScreen({ navigation, route }) {
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
   const initCategory = route.params?.category || 'all';
   const initTab = route.params?.tab === 'trending' ? 1 : route.params?.tab === 'latest' ? 2 : 0;
 
@@ -65,26 +68,26 @@ export default function BrowseScreen({ navigation, route }) {
   };
 
   return (
-    <View style={styles.outerContainer}>
+    <View style={[styles.outerContainer, { backgroundColor: theme.bg }]}>
       {/* ─── YOUTUBE TV LEFT NAVIGATION RAIL ─── */}
       <TVNavigationRail
         currentRoute="Browse"
         onNavigate={(target) => navigation.navigate(target)}
       />
 
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, { backgroundColor: theme.bg }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {!isTV && (
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <MaterialIcons name="arrow-back" size={22} color={COLORS.text} />
             </TouchableOpacity>
           )}
-          <Text style={styles.headerTitle}>Explore Torrents</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Explore Torrents</Text>
         </View>
 
         {/* Neumorphic Segmented Tab Switcher */}
-        <View style={styles.tabContainer}>
+        <View style={[styles.tabContainer, { backgroundColor: theme.input, borderColor: theme.border }]}>
           {TABS.map((t, i) => (
             <TabSegmentBtn
               key={t}
@@ -109,7 +112,7 @@ export default function BrowseScreen({ navigation, route }) {
 
         {/* Sort Options (Browse tab only) */}
         {tab === 0 && (
-          <View style={styles.sortRow}>
+          <View style={[styles.sortRow, { backgroundColor: theme.bg }]}>
             {SORT_OPTIONS.map((opt) => (
               <BrowseSortChip
                 key={opt.value + opt.order}
@@ -151,14 +154,19 @@ export default function BrowseScreen({ navigation, route }) {
 }
 
 function TabSegmentBtn({ label, isActive, onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
 
   return (
     <TouchableOpacity
       style={[
         styles.tabBtn,
+        { backgroundColor: isActive ? theme.card : 'transparent' },
         isActive && styles.tabBtnActive,
         focused && styles.tabBtnFocused,
+        { backgroundColor: focused ? undefined : isActive ? theme.card : 'transparent' },
+        focused && focusStyle,
       ]}
       onPress={() => {
         playTVSelectFeedback();
@@ -173,6 +181,7 @@ function TabSegmentBtn({ label, isActive, onPress }) {
           styles.tabText,
           isActive && styles.tabTextActive,
           focused && styles.tabTextFocused,
+          { color: focused ? '#fff' : isActive ? COLORS.primary : theme.textMuted },
         ]}
       >
         {label}
@@ -182,14 +191,18 @@ function TabSegmentBtn({ label, isActive, onPress }) {
 }
 
 function BrowseCatChip({ cat, isSelected, onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
 
   return (
     <TouchableOpacity
       style={[
         styles.catChip,
+        { backgroundColor: isSelected ? COLORS.primary : theme.card, borderColor: isSelected ? COLORS.primary : theme.border },
         isSelected && styles.catChipSelected,
         focused && styles.catChipFocused,
+        focused && focusStyle,
       ]}
       onPress={() => {
         playTVSelectFeedback();
@@ -201,6 +214,7 @@ function BrowseCatChip({ cat, isSelected, onPress }) {
       <Text
         style={[
           styles.catText,
+          { color: isSelected || focused ? '#fff' : theme.textSub },
           isSelected && styles.catTextSelected,
           focused && styles.catTextFocused,
         ]}
@@ -212,14 +226,18 @@ function BrowseCatChip({ cat, isSelected, onPress }) {
 }
 
 function BrowseSortChip({ opt, isActive, onPress }) {
-  const { focused, onFocus, onBlur } = useTVFocus();
+  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
 
   return (
     <TouchableOpacity
       style={[
         styles.sortChip,
+        { backgroundColor: isActive ? COLORS.primary : theme.card, borderColor: theme.border },
         isActive && styles.sortChipActive,
         focused && styles.sortChipFocused,
+        focused && focusStyle,
       ]}
       onPress={() => {
         playTVSelectFeedback();
@@ -231,6 +249,7 @@ function BrowseSortChip({ opt, isActive, onPress }) {
       <Text
         style={[
           styles.sortText,
+          { color: isActive || focused ? '#fff' : theme.textSub },
           isActive && styles.sortTextActive,
           focused && styles.sortTextFocused,
         ]}

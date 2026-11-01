@@ -7,6 +7,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { COLORS } from '../constants';
+import { useTVFocus, playTVSelectFeedback } from '../hooks';
 
 const isTV = Platform.isTV;
 
@@ -73,32 +74,42 @@ export default function PlayerScreen({ navigation, route }) {
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>Webtor could not load. Try opening it in your browser.</Text>
-          <TouchableOpacity onPress={() => Linking.openURL(webTorUrl)}><Text style={styles.linkText}>Open Webtor</Text></TouchableOpacity>
+          <PlayerAction label="Open Webtor" onPress={() => Linking.openURL(webTorUrl)} />
         </View>
       )}
       {showFallback && !error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>Still loading? Webtor may be resolving the torrent or this file may not be streamable.</Text>
           <View style={styles.fallbackActions}>
-            <TouchableOpacity onPress={() => Linking.openURL(webTorUrl)}><Text style={styles.linkText}>Open Webtor page</Text></TouchableOpacity>
-            <TouchableOpacity onPress={openVLC}><Text style={styles.linkText}>Try VLC</Text></TouchableOpacity>
+            <PlayerAction label="Open Webtor page" onPress={() => Linking.openURL(webTorUrl)} />
+            <PlayerAction label="Try VLC" onPress={openVLC} />
           </View>
         </View>
       )}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()} hasTVPreferredFocus={isTV}>
-          <MaterialIcons name="arrow-back" size={22} color="#fff" />
-        </TouchableOpacity>
+        <PlayerAction icon="arrow-back" onPress={() => navigation.goBack()} preferred style={styles.iconBtn} />
         <Text style={styles.title} numberOfLines={1}>{torrent?.title || 'Streaming'}</Text>
-        <TouchableOpacity style={styles.actionBtn} onPress={openVLC}>
-          <MaterialIcons name="play-circle-outline" size={17} color="#FFB74D" />
-          <Text style={styles.actionText}>VLC</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => webViewRef.current?.reload()}>
-          <MaterialIcons name="refresh" size={20} color="#fff" />
-        </TouchableOpacity>
+        <PlayerAction icon="play-circle-outline" label="VLC" onPress={openVLC} style={styles.actionBtn} />
+        <PlayerAction icon="refresh" onPress={() => webViewRef.current?.reload()} style={styles.iconBtn} />
       </View>
     </View>
+  );
+}
+
+function PlayerAction({ icon, label, onPress, style, preferred = false }) {
+  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      hasTVPreferredFocus={isTV && preferred}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      style={[style || styles.playerAction, focused && styles.playerActionFocused, focused && focusStyle]}
+    >
+      {icon && <MaterialIcons name={icon} size={20} color={focused ? '#fff' : COLORS.primaryGlow} />}
+      {label && <Text style={[styles.actionText, focused && styles.actionTextFocused]}>{label}</Text>}
+    </TouchableOpacity>
   );
 }
 
@@ -113,6 +124,9 @@ const styles = StyleSheet.create({
   title: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '700' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 10, borderRadius: 12, backgroundColor: COLORS.card },
   actionText: { color: '#fff', fontWeight: '700' },
+  playerAction: { minHeight: 40, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, borderWidth: 2, borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  playerActionFocused: { borderWidth: 3, borderColor: '#fff', backgroundColor: 'rgba(232,91,67,0.5)', shadowColor: COLORS.primaryGlow, shadowOpacity: 1, shadowRadius: 14, elevation: 12, transform: [{ scale: 1.06 }] },
+  actionTextFocused: { color: '#fff', fontWeight: '900' },
   errorBanner: { position: 'absolute', bottom: 22, left: 16, right: 16, padding: 14, borderRadius: 14, backgroundColor: COLORS.surfaceElevated, alignItems: 'center', gap: 8 },
   errorText: { color: '#fff', textAlign: 'center' },
   linkText: { color: COLORS.primaryGlow, fontWeight: '800' },

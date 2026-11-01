@@ -3,7 +3,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar, LogBox } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
-import { COLORS } from './src/constants';
+import { SettingsProvider, useAppSettings, getTheme } from './src/utils/settings';
 
 // Suppress known non-critical warnings
 LogBox.ignoreLogs([
@@ -14,9 +14,19 @@ LogBox.ignoreLogs([
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <SettingsProvider>
+      <AppShell />
+    </SettingsProvider>
+  );
+}
+
+function AppShell() {
+  const { settings } = useAppSettings();
+  const theme = getTheme(settings.mode);
+  return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.bg }}>
       <SafeAreaProvider>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+        <StatusBar barStyle={settings.mode === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.bg} />
         <AppNavigator />
       </SafeAreaProvider>
     </GestureHandlerRootView>
