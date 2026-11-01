@@ -59,7 +59,7 @@ export async function fetchMediaMetadata(rawTitle) {
         description: movie.description || null,
         trailerUrl: movie.trailerInfo?.ytId
           ? `https://www.youtube.com/watch?v=${movie.trailerInfo.ytId}`
-          : `https://www.youtube.com/results?search_query=${encodeURIComponent(movie.name + ' trailer')}`,
+          : null,
       };
       metaCache.set(cacheKey, data);
       return data;
@@ -79,7 +79,9 @@ export async function fetchMediaMetadata(rawTitle) {
         rating: series.imdbRating || null,
         genres: series.genres || [],
         description: series.description || null,
-        trailerUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(series.name + ' trailer')}`,
+        trailerUrl: series.trailerInfo?.ytId
+          ? `https://www.youtube.com/watch?v=${series.trailerInfo.ytId}`
+          : null,
       };
       metaCache.set(cacheKey, data);
       return data;
@@ -99,7 +101,7 @@ export async function fetchMediaMetadata(rawTitle) {
         rating: show.rating?.average ? String(show.rating.average) : null,
         genres: show.genres || [],
         description: show.summary ? show.summary.replace(/<[^>]+>/g, '') : null,
-        trailerUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(show.name + ' trailer')}`,
+        trailerUrl: null,
       };
       metaCache.set(cacheKey, data);
       return data;

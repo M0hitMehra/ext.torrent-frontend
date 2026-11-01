@@ -76,12 +76,12 @@ export default function TorrentDetailScreen({ navigation, route }) {
       return;
     }
     try {
-      await setClipboardString(magnet);
+      const success = await setClipboardString(magnet);
+      if (!success) throw new Error('Clipboard unavailable');
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch (e) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      Alert.alert('Could not copy link', e.message || 'Please try again.');
     }
   }, [magnet]);
 
@@ -99,7 +99,7 @@ export default function TorrentDetailScreen({ navigation, route }) {
     navigation.navigate('Player', {
       torrent: detail,
       magnet,
-      engine, // 'webtor' or 'torrserver'
+      engine,
     });
   }, [detail, magnet, navigation]);
 

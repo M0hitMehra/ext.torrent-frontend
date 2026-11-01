@@ -24,12 +24,6 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
     onSelectInApp('webtor');
   };
 
-  const handleTorrServerInApp = () => {
-    playTVSelectFeedback();
-    onClose();
-    onSelectInApp('torrserver');
-  };
-
   const handleOpenVLC = async () => {
     playTVSelectFeedback();
     onClose();
@@ -56,7 +50,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
   const handleOpenWebTorBrowser = async () => {
     playTVSelectFeedback();
     onClose();
-    const webTorUrl = `https://webtor.io/#action=load&magnet=${encodeURIComponent(magnet)}`;
+    const webTorUrl = `https://webtor.io/${encodeURIComponent(magnet)}`;
     await Linking.openURL(webTorUrl);
   };
 
@@ -98,23 +92,13 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               iconColor="#00E5FF"
               badge="AUTO-PASTE"
               title="WebTor In-App Player"
-              description="Streams directly inside app. Automatically injects magnet link."
+              description="Loads this magnet directly in the embedded Webtor player."
               onPress={handleWebTorInApp}
               recommended
               isFirst
             />
 
-            {/* 2. TorrServer Native Stream */}
-            <PlayerOptionTile
-              icon="speed"
-              iconColor="#7C6CFF"
-              badge="EXOPLAYER"
-              title="TorrServer Native Stream"
-              description="Sequential streaming via ExoPlayer engine with low buffering."
-              onPress={handleTorrServerInApp}
-            />
-
-            {/* 3. VLC Player */}
+            {/* 2. VLC Player */}
             <PlayerOptionTile
               icon="video-settings"
               iconColor="#FF9100"
@@ -124,7 +108,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               onPress={handleOpenVLC}
             />
 
-            {/* 4. Browser WebTor */}
+            {/* 3. Browser WebTor */}
             <PlayerOptionTile
               icon="open-in-browser"
               iconColor="#00E676"
@@ -133,7 +117,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               onPress={handleOpenWebTorBrowser}
             />
 
-            {/* 5. System Intent */}
+            {/* 4. System Intent */}
             <PlayerOptionTile
               icon="phone-android"
               iconColor={COLORS.textSub}

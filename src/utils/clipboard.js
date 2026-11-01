@@ -4,7 +4,7 @@
  * Uses native Android ClipboardManager via NativeClipboardModule,
  * with fallbacks if invoked elsewhere.
  */
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules } from 'react-native';
 
 const { NativeClipboard } = NativeModules;
 
@@ -18,7 +18,7 @@ export async function setClipboardString(text) {
   } catch (err) {
     console.warn('NativeClipboard.setString error:', err);
   }
-  return false;
+  throw new Error('Clipboard is unavailable. Rebuild the Android app to enable copying.');
 }
 
 export async function getClipboardString() {

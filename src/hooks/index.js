@@ -6,6 +6,7 @@ const { NativeClipboard } = NativeModules;
 export function playTVFocusFeedback() {
   try {
     NativeClipboard?.playFocusSound?.();
+    NativeClipboard?.triggerHaptic?.();
   } catch (_) {}
 }
 

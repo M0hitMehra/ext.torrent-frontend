@@ -13,8 +13,6 @@ export const CATEGORIES = [
   { slug: 'other',    label: 'Other',     icon: 'category' },
 ];
 
-export const TORR_SERVER_BASE = 'https://torrserver.me';
-
 // Neumorphism Theme Colors (Dark Mode Obsidian/Slate with High-Contrast TV Focus)
 export const COLORS = {
   bg:            '#0F1015',
