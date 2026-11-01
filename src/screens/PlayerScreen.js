@@ -1,9 +1,10 @@
 /** In-app Webtor embed player for a selected magnet URI. */
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
+  View, Text, StyleSheet, ActivityIndicator,
   Platform, StatusBar, Linking, Alert,
 } from 'react-native';
+import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { COLORS } from '../constants';
@@ -99,7 +100,7 @@ export default function PlayerScreen({ navigation, route }) {
 function PlayerAction({ icon, label, onPress, style, preferred = false }) {
   const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       accessibilityRole="button"
       hasTVPreferredFocus={isTV && preferred}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
@@ -109,7 +110,7 @@ function PlayerAction({ icon, label, onPress, style, preferred = false }) {
     >
       {icon && <MaterialIcons name={icon} size={20} color={focused ? '#fff' : COLORS.primaryGlow} />}
       {label && <Text style={[styles.actionText, focused && styles.actionTextFocused]}>{label}</Text>}
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 

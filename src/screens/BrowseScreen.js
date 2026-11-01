@@ -6,9 +6,9 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, Platform,
-  TouchableOpacity, ScrollView,
+  View, Text, FlatList, StyleSheet, Platform, ScrollView,
 } from 'react-native';
+import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, CATEGORIES, SORT_OPTIONS } from '../constants';
 import { browseTorrents, getTrending, getLatest } from '../api/torrentApi';
@@ -79,9 +79,9 @@ export default function BrowseScreen({ navigation, route }) {
         {/* Header */}
         <View style={[styles.header, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {!isTV && (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <FocusableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <MaterialIcons name="arrow-back" size={22} color={COLORS.text} />
-            </TouchableOpacity>
+            </FocusableOpacity>
           )}
           <Text style={[styles.headerTitle, { color: theme.text }]}>Explore Torrents</Text>
         </View>
@@ -159,7 +159,7 @@ function TabSegmentBtn({ label, isActive, onPress }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[
         styles.tabBtn,
         { backgroundColor: isActive ? theme.card : 'transparent' },
@@ -186,7 +186,7 @@ function TabSegmentBtn({ label, isActive, onPress }) {
       >
         {label}
       </Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
@@ -196,7 +196,7 @@ function BrowseCatChip({ cat, isSelected, onPress }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[
         styles.catChip,
         { backgroundColor: isSelected ? COLORS.primary : theme.card, borderColor: isSelected ? COLORS.primary : theme.border },
@@ -221,7 +221,7 @@ function BrowseCatChip({ cat, isSelected, onPress }) {
       >
         {cat.label}
       </Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
@@ -231,7 +231,7 @@ function BrowseSortChip({ opt, isActive, onPress }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[
         styles.sortChip,
         { backgroundColor: isActive ? COLORS.primary : theme.card, borderColor: theme.border },
@@ -256,7 +256,7 @@ function BrowseSortChip({ opt, isActive, onPress }) {
       >
         {opt.label}
       </Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 

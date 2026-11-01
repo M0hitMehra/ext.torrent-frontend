@@ -8,8 +8,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList, StyleSheet,
-  Platform, TouchableOpacity, Keyboard,
+  Platform, Keyboard,
 } from 'react-native';
+import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, SORT_OPTIONS } from '../constants';
 import { searchTorrents } from '../api/torrentApi';
@@ -120,9 +121,9 @@ export default function SearchScreen({ navigation, route }) {
         {/* ─── NEUMORPHIC SEARCH BAR ─── */}
         <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {!isTV && (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <FocusableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <MaterialIcons name="arrow-back" size={22} color={COLORS.text} />
-            </TouchableOpacity>
+            </FocusableOpacity>
           )}
 
           {isTV ? (
@@ -145,9 +146,9 @@ export default function SearchScreen({ navigation, route }) {
                 autoFocus={!initialQuery}
               />
               {query.length > 0 && (
-                <TouchableOpacity onPress={() => { setQuery(''); setResults([]); setHasSearched(false); }} style={styles.clearBtn}>
+                <FocusableOpacity onPress={() => { setQuery(''); setResults([]); setHasSearched(false); }} style={styles.clearBtn}>
                   <MaterialIcons name="close" size={18} color={COLORS.textMuted} />
-                </TouchableOpacity>
+                </FocusableOpacity>
               )}
             </View>
           )}
@@ -248,7 +249,7 @@ function TVSearchInput({ query, onPress }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       hasTVPreferredFocus={isTV}
       accessibilityRole="button"
       accessibilityLabel={query ? `Search query ${query}. Press OK to edit.` : 'Search titles. Press OK to open the TV keyboard.'}
@@ -274,7 +275,7 @@ function TVSearchInput({ query, onPress }) {
           <Text style={styles.tvInputBeaconText}>KEYBOARD</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
@@ -282,7 +283,7 @@ function SearchActionSubmitButton({ onPress }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       onPress={() => {
         playTVSelectFeedback();
         onPress();
@@ -292,7 +293,7 @@ function SearchActionSubmitButton({ onPress }) {
       style={[styles.searchActionBtn, focused && styles.searchActionBtnFocused, focused && focusStyle]}
     >
       <MaterialIcons name="arrow-forward" size={20} color="#fff" />
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
@@ -302,7 +303,7 @@ function SortChip({ opt, isActive, onPress }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[
         styles.sortChip,
         { backgroundColor: isActive ? COLORS.primary : theme.card, borderColor: theme.border },
@@ -327,7 +328,7 @@ function SortChip({ opt, isActive, onPress }) {
       >
         {opt.label}
       </Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
@@ -337,7 +338,7 @@ function HistoryChip({ item, onSelect, onRemove }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[styles.historyChip, { backgroundColor: theme.card, borderColor: theme.border }, focused && styles.historyChipFocused, focused && focusStyle]}
       onPress={() => {
         playTVSelectFeedback();
@@ -351,25 +352,25 @@ function HistoryChip({ item, onSelect, onRemove }) {
         {item}
       </Text>
       <HistoryRemoveButton onPress={onRemove} />
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function HistoryRemoveButton({ onPress }) {
   const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
   return (
-    <TouchableOpacity onPress={() => { playTVSelectFeedback(); onPress(); }} onFocus={onFocus} onBlur={onBlur} style={[styles.historyRemoveBtn, focused && focusStyle]} accessibilityLabel="Remove search from history">
+    <FocusableOpacity onPress={() => { playTVSelectFeedback(); onPress(); }} onFocus={onFocus} onBlur={onBlur} style={[styles.historyRemoveBtn, focused && focusStyle]} accessibilityLabel="Remove search from history">
       <MaterialIcons name="close" size={14} color={focused ? '#FFFFFF' : COLORS.textMuted} />
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function ClearHistoryButton({ onPress }) {
   const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
   return (
-    <TouchableOpacity onPress={() => { playTVSelectFeedback(); onPress(); }} onFocus={onFocus} onBlur={onBlur} style={[styles.clearAllBtn, focused && focusStyle]} accessibilityRole="button">
+    <FocusableOpacity onPress={() => { playTVSelectFeedback(); onPress(); }} onFocus={onFocus} onBlur={onBlur} style={[styles.clearAllBtn, focused && focusStyle]} accessibilityRole="button">
       <Text style={styles.clearAllText}>Clear All</Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 

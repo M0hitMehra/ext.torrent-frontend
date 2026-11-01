@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { FocusableOpacity } from './FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
@@ -31,7 +32,7 @@ export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false
   };
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       activeOpacity={0.85}
       onPress={handlePress}
       onFocus={onFocus}
@@ -120,7 +121,7 @@ export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 

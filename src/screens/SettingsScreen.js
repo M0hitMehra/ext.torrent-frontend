@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Alert } from 'react-native';
+import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useAppSettings, getTheme, FOCUS_COLORS } from '../utils/settings';
@@ -30,7 +31,7 @@ export default function SettingsScreen({ navigation }) {
       <TVNavigationRail currentRoute="Settings" onNavigate={(route) => navigation.navigate(route)} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={[styles.header, { borderBottomColor: theme.border }]}>
-          {!isTV && <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}><MaterialIcons name="arrow-back" size={22} color={theme.text} /></TouchableOpacity>}
+          {!isTV && <FocusableOpacity onPress={() => navigation.goBack()} style={styles.back}><MaterialIcons name="arrow-back" size={22} color={theme.text} /></FocusableOpacity>}
           <View style={styles.headingGroup}>
             <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
             <Text style={[styles.subtitle, { color: theme.textMuted }]}>Personalize the screen and remote focus</Text>
@@ -56,7 +57,7 @@ export default function SettingsScreen({ navigation }) {
           </View>
           <Text style={[styles.description, { color: theme.textSub }]}>The selected color outlines focused tiles across search, keyboard, catalog and player choices.</Text>
           <View style={styles.swatches}>
-            {FOCUS_COLORS.map(color => (
+            {FOCUS_COLORS.filter(color => settings.mode !== 'light' || color.value !== '#FFFFFF').map(color => (
               <ColorSwatch key={color.value} item={color} selected={settings.focusColor === color.value} onPress={() => updateSettings({ focusColor: color.value })} />
             ))}
           </View>
@@ -82,7 +83,7 @@ export default function SettingsScreen({ navigation }) {
 function SettingsOption({ label, icon, selected, onPress, theme }) {
   const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       accessibilityRole="button"
       accessibilityState={{ selected }}
       hasTVPreferredFocus={isTV && selected}
@@ -94,14 +95,14 @@ function SettingsOption({ label, icon, selected, onPress, theme }) {
       <MaterialIcons name={icon} size={22} color={selected ? COLORS.primary : theme.textSub} />
       <Text style={[styles.optionLabel, { color: theme.text }]}>{label}</Text>
       {selected && <MaterialIcons name="check-circle" size={18} color={COLORS.primary} />}
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function ColorSwatch({ item, selected, onPress }) {
   const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       accessibilityRole="button"
       accessibilityLabel={`${item.name} remote highlight`}
       accessibilityState={{ selected }}
@@ -112,14 +113,14 @@ function ColorSwatch({ item, selected, onPress }) {
     >
       <View style={[styles.swatch, { backgroundColor: item.value }]} />
       <Text style={styles.swatchLabel}>{item.name}</Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function ClearDataButton({ onPress, theme }) {
   const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       accessibilityRole="button"
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
@@ -129,7 +130,7 @@ function ClearDataButton({ onPress, theme }) {
       <MaterialIcons name="delete-outline" size={20} color="#D94848" />
       <Text style={styles.clearText}>Clear all saved app data</Text>
       <MaterialIcons name="chevron-right" size={20} color="#D94848" />
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 

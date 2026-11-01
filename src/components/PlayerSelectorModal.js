@@ -9,6 +9,7 @@ import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
   Platform, Linking, Alert,
 } from 'react-native';
+import { FocusableOpacity } from './FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
@@ -82,9 +83,9 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               <Text style={[styles.headerSub, { color: theme.textMuted }]} numberOfLines={1}>{torrent.title}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+            <FocusableOpacity style={styles.closeBtn} onPress={onClose}>
               <MaterialIcons name="close" size={22} color={COLORS.textMuted} />
-            </TouchableOpacity>
+            </FocusableOpacity>
           </View>
 
           {/* Player Option Tiles */}
@@ -141,7 +142,7 @@ function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress,
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       activeOpacity={0.8}
       hasTVPreferredFocus={isFirst && isTV}
       style={[
@@ -181,7 +182,7 @@ function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress,
           <Text style={styles.tileBeaconText}>SELECT</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 

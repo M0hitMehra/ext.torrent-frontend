@@ -10,9 +10,9 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, Platform,
-  TouchableOpacity, StatusBar, ScrollView,
+  View, Text, FlatList, StyleSheet, Platform, StatusBar, ScrollView,
 } from 'react-native';
+import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, CATEGORIES } from '../constants';
 import { getTrending, getLatest } from '../api/torrentApi';
@@ -204,7 +204,7 @@ function SearchTriggerButton({ onPress }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       hasTVPreferredFocus={isTV}
       accessibilityRole="button"
       accessibilityLabel="Search titles. Press OK to open search."
@@ -230,7 +230,7 @@ function SearchTriggerButton({ onPress }) {
           <Text style={styles.searchPointerText}>SELECT</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
@@ -239,7 +239,7 @@ function HeroAction({ icon, label, onPress, primary }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       hasTVPreferredFocus={false}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
@@ -250,7 +250,7 @@ function HeroAction({ icon, label, onPress, primary }) {
       <MaterialIcons name={icon} size={20} color="#fff" />
       <Text style={styles.heroActionText}>{label}</Text>
       <MaterialIcons name="chevron-right" size={20} color="#fff" />
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
@@ -260,7 +260,7 @@ function CategoryChip({ cat, selected, onPress, onLongPress }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[
         styles.catChip,
         { backgroundColor: selected ? COLORS.primary : theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
@@ -292,7 +292,7 @@ function CategoryChip({ cat, selected, onPress, onLongPress }) {
       >
         {cat.label}
       </Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 

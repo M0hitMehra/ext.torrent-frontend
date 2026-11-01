@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { FocusableOpacity } from './FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
@@ -30,10 +31,10 @@ export function ErrorView({ message, onRetry }) {
       <Text style={styles.errorTitle}>Connection Problem</Text>
       <Text style={styles.errorMessage}>{message}</Text>
       {onRetry && (
-        <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
+        <FocusableOpacity style={styles.retryBtn} onPress={onRetry}>
           <MaterialIcons name="refresh" size={18} color="#fff" />
           <Text style={styles.retryText}>Try Again</Text>
-        </TouchableOpacity>
+        </FocusableOpacity>
       )}
     </View>
   );
@@ -61,7 +62,7 @@ export function SectionHeader({ title, icon, onSeeAll }) {
         <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
       </View>
       {onSeeAll && (
-        <TouchableOpacity
+        <FocusableOpacity
           onPress={() => { playTVSelectFeedback(); onSeeAll(); }}
           onFocus={onFocus}
           onBlur={onBlur}
@@ -69,7 +70,7 @@ export function SectionHeader({ title, icon, onSeeAll }) {
         >
           <Text style={styles.seeAllText}>See All</Text>
           <MaterialIcons name="chevron-right" size={16} color={COLORS.primaryGlow} />
-        </TouchableOpacity>
+        </FocusableOpacity>
       )}
     </View>
   );

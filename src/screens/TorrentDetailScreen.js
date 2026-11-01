@@ -10,9 +10,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Platform,
-  TouchableOpacity, Image, Linking, Alert, ActivityIndicator,
+  View, Text, ScrollView, StyleSheet, Platform, Image, Linking, Alert, ActivityIndicator,
 } from 'react-native';
+import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { setClipboardString } from '../utils/clipboard';
 import { COLORS } from '../constants';
@@ -553,21 +553,21 @@ const styles = StyleSheet.create({
 function DetailBackButton({ onPress }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[styles.backBtn, focused && styles.backBtnFocused, focused && focusStyle]}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
       onBlur={onBlur}
     >
       <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function DetailCopyHeaderButton({ copied, onPress }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[styles.shareBtn, focused && styles.shareBtnFocused, focused && focusStyle]}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
@@ -578,14 +578,14 @@ function DetailCopyHeaderButton({ copied, onPress }) {
         size={20}
         color={copied ? COLORS.seeder : '#FFFFFF'}
       />
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function DetailTrailerButton({ onPress }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[styles.trailerBtn, focused && styles.trailerBtnFocused, focused && focusStyle]}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
@@ -593,14 +593,14 @@ function DetailTrailerButton({ onPress }) {
     >
       <MaterialIcons name="movie" size={15} color="#FF5252" />
       <Text style={styles.trailerBtnText}>Watch Trailer</Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function DetailStreamMainButton({ onPress }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[styles.btnPrimaryStream, focused && styles.btnPrimaryStreamFocused, focused && focusStyle]}
       activeOpacity={0.85}
       hasTVPreferredFocus={isTV}
@@ -620,14 +620,14 @@ function DetailStreamMainButton({ onPress }) {
       ) : (
         <MaterialIcons name="chevron-right" size={24} color="#fff" style={{ marginLeft: 'auto' }} />
       )}
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function DetailCopyMagnetButton({ copied, onPress }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[
         styles.btnCopyMagnet,
         copied && styles.btnCopiedActive,
@@ -647,14 +647,14 @@ function DetailCopyMagnetButton({ copied, onPress }) {
       <Text style={[styles.btnCopyText, copied && { color: COLORS.seeder }]}>
         {copied ? 'Magnet Link Copied to Clipboard!' : 'Copy Magnet Link'}
       </Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
 function DetailMagnetBox({ magnet, onPress }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       style={[styles.magnetBox, focused && styles.magnetBoxFocused, focused && focusStyle]}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
       onFocus={onFocus}
@@ -662,6 +662,6 @@ function DetailMagnetBox({ magnet, onPress }) {
     >
       <Text style={styles.magnetText} numberOfLines={2}>{magnet}</Text>
       <Text style={styles.tapToCopyText}>Tap to copy URI</Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }

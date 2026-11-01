@@ -6,9 +6,10 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet,
   Modal, Platform,
 } from 'react-native';
+import { FocusableOpacity } from './FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
@@ -37,7 +38,7 @@ function TVKey({ label, onPress, isFirst }) {
   };
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       hasTVPreferredFocus={isFirst}
       style={[
         styles.key,
@@ -62,7 +63,7 @@ function TVKey({ label, onPress, isFirst }) {
       >
         {label === 'SPACE' ? '⎵ Space' : label === '⌫' ? '⌫ Back' : label.toUpperCase()}
       </Text>
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
@@ -108,9 +109,9 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
               )}
             </View>
 
-            <TouchableOpacity onPress={onClose} onFocus={closeFocus.onFocus} onBlur={closeFocus.onBlur} style={[styles.closeBtn, { backgroundColor: theme.card }, closeFocus.focused && styles.keyFocused, closeFocus.focused && closeFocus.focusStyle]}>
+            <FocusableOpacity onPress={onClose} onFocus={closeFocus.onFocus} onBlur={closeFocus.onBlur} style={[styles.closeBtn, { backgroundColor: theme.card }, closeFocus.focused && styles.keyFocused, closeFocus.focused && closeFocus.focusStyle]}>
               <MaterialIcons name="close" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+            </FocusableOpacity>
           </View>
 
           {/* Keyboard Keys */}
@@ -138,9 +139,9 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
 function KeyboardClearButton({ onPress, children, theme }) {
   const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
   return (
-    <TouchableOpacity onPress={() => { playTVSelectFeedback(); onPress(); }} onFocus={onFocus} onBlur={onBlur} style={[styles.clearMiniBtn, { backgroundColor: theme.card }, focused && styles.keyFocused, focused && focusStyle]}>
+    <FocusableOpacity onPress={() => { playTVSelectFeedback(); onPress(); }} onFocus={onFocus} onBlur={onBlur} style={[styles.clearMiniBtn, { backgroundColor: theme.card }, focused && styles.keyFocused, focused && focusStyle]}>
       {children}
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 

@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { FocusableOpacity } from './FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useTVFocus, playTVSelectFeedback } from '../hooks';
@@ -61,7 +62,7 @@ function RailButton({ item, isActive, onPress }) {
   const theme = getTheme(settings.mode);
 
   return (
-    <TouchableOpacity
+    <FocusableOpacity
       activeOpacity={0.85}
       style={[
         styles.railBtn,
@@ -98,7 +99,7 @@ function RailButton({ item, isActive, onPress }) {
           <View style={styles.beaconDot} />
         </View>
       )}
-    </TouchableOpacity>
+    </FocusableOpacity>
   );
 }
 
