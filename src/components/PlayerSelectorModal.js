@@ -191,30 +191,28 @@ function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress,
       ]}
       onPress={onPress}
     >
-      onBlur={onBlur}
-    >
       <View style={[styles.tileIconCircle, { backgroundColor: iconColor + '20' }]}>
         <MaterialIcons name={icon} size={22} color={iconColor} />
       </View>
       <View style={styles.tileTextWrap}>
         <View style={styles.tileTitleRow}>
-          <Text style={[styles.tileTitle, { color: theme.text }, focused && styles.tileTitleFocused]}>{title}</Text>
+          <Text style={[styles.tileTitle, { color: theme.text }, isFocused && styles.tileTitleFocused]}>{title}</Text>
           {badge && (
-            <View style={[styles.badge, recommended && styles.badgeRec, focused && styles.badgeFocused]}>
-              <Text style={[styles.badgeText, focused && styles.badgeTextFocused]}>{badge}</Text>
+            <View style={[styles.badge, recommended && styles.badgeRec, isFocused && styles.badgeFocused]}>
+              <Text style={[styles.badgeText, isFocused && styles.badgeTextFocused]}>{badge}</Text>
             </View>
           )}
         </View>
-        <Text style={[styles.tileDesc, { color: theme.textSub }, focused && styles.tileDescFocused]} numberOfLines={2}>
+        <Text style={[styles.tileDesc, { color: theme.textSub }, isFocused && styles.tileDescFocused]} numberOfLines={2}>
           {description}
         </Text>
       </View>
       <MaterialIcons
         name="chevron-right"
         size={22}
-        color={focused ? '#FFFFFF' : COLORS.textMuted}
+        color={isFocused ? '#FFFFFF' : COLORS.textMuted}
       />
-      {focused && (
+      {isFocused && (
         <View style={styles.tileBeacon}>
           <Text style={styles.tileBeaconText}>SELECT</Text>
         </View>
