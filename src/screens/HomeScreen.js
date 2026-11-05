@@ -448,7 +448,12 @@ const styles = StyleSheet.create({
   },
   searchBarBtnFocused: {
     borderColor: '#FFFFFF',
-    backgroundColor: COLORS.primary,
+    borderTopColor: '#FFFFFF',
+    borderBottomColor: '#FFFFFF',
+    borderLeftColor: '#FFFFFF',
+    borderRightColor: '#FFFFFF',
+    borderWidth: 3,
+    backgroundColor: '#FF5722',
     transform: [{ scale: 1.05 }],
   },
   searchBtnText: {
@@ -495,8 +500,13 @@ const styles = StyleSheet.create({
   },
   catChipFocused: {
     borderColor: '#FFFFFF',
-    backgroundColor: COLORS.primary,
-    transform: [{ scale: 1.08 }],
+    borderTopColor: '#FFFFFF',
+    borderBottomColor: '#FFFFFF',
+    borderLeftColor: '#FFFFFF',
+    borderRightColor: '#FFFFFF',
+    borderWidth: 3,
+    backgroundColor: '#FF5722',
+    transform: [{ scale: 1.10 }],
   },
   catText: {
     fontSize: 12,

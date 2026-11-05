@@ -1,18 +1,17 @@
 /**
  * TVKeyboard.js
- * High-contrast Neumorphic on-screen keyboard for TV remote control.
+ * High-contrast on-screen keyboard for TV remote control.
  * Styled after YouTube TV with audio-haptic feedback, autofocus, and luminous key states.
  */
 
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet,
-  Modal, Platform,
+  Modal, Platform, TouchableOpacity,
 } from 'react-native';
-import { FocusableOpacity } from './FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
-import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { playTVFocusFeedback, playTVSelectFeedback } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
@@ -26,11 +25,12 @@ const TV_KEYBOARD_ROWS = [
 ];
 
 function TVKey({ label, onPress, isFirst }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+  const [focused, setFocused] = useState(false);
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
   const isWide = ['SPACE','CLEAR','SEARCH'].includes(label);
   const isSearch = label === 'SEARCH';
+  const accentColor = (settings.focusColor && settings.focusColor !== '#FFFFFF') ? settings.focusColor : '#FF5722';
 
   const handlePress = () => {
     playTVSelectFeedback();
@@ -38,40 +38,67 @@ function TVKey({ label, onPress, isFirst }) {
   };
 
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       hasTVPreferredFocus={isFirst}
+      focusable
+      activeOpacity={0.8}
+      onFocus={() => {
+        setFocused(true);
+        playTVFocusFeedback();
+      }}
+      onBlur={() => {
+        setFocused(false);
+      }}
+      onPress={handlePress}
       style={[
         styles.key,
-        { backgroundColor: theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
+        {
+          backgroundColor: isSearch ? accentColor : theme.card,
+          borderColor: isSearch ? accentColor : 'rgba(255, 255, 255, 0.12)',
+          borderTopColor: isSearch ? accentColor : 'rgba(255, 255, 255, 0.12)',
+          borderBottomColor: isSearch ? accentColor : 'rgba(255, 255, 255, 0.12)',
+          borderLeftColor: isSearch ? accentColor : 'rgba(255, 255, 255, 0.12)',
+          borderRightColor: isSearch ? accentColor : 'rgba(255, 255, 255, 0.12)',
+        },
         isWide && styles.keyWide,
         isSearch && styles.keySearch,
-        focused && styles.keyFocused,
-        focused && focusStyle,
+        focused && {
+          backgroundColor: accentColor,
+          borderColor: '#FFFFFF',
+          borderTopColor: '#FFFFFF',
+          borderBottomColor: '#FFFFFF',
+          borderLeftColor: '#FFFFFF',
+          borderRightColor: '#FFFFFF',
+          borderWidth: 3.5,
+          transform: [{ scale: 1.18 }],
+          elevation: 20,
+          shadowColor: accentColor,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 1,
+          shadowRadius: 18,
+          zIndex: 99,
+        },
       ]}
-      onPress={handlePress}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      activeOpacity={0.8}
     >
       <Text
         style={[
           styles.keyText,
-          { color: theme.text },
-          isSearch && styles.keySearchText,
-          focused && styles.keyTextFocused,
+          { color: (focused || isSearch) ? '#FFFFFF' : theme.text },
+          focused && { fontWeight: '900', color: '#FFFFFF' },
         ]}
       >
         {label === 'SPACE' ? '⎵ Space' : label === '⌫' ? '⌫ Back' : label.toUpperCase()}
       </Text>
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
 export function TVKeyboard({ visible, onClose, onSearch }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
-  const closeFocus = useTVFocus();
+  const [closeFocused, setCloseFocused] = useState(false);
   const [text, setText] = useState('');
+  const accentColor = (settings.focusColor && settings.focusColor !== '#FFFFFF') ? settings.focusColor : '#FF5722';
 
   const handleKey = useCallback((key) => {
     if (key === '⌫') {
@@ -94,24 +121,47 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={[styles.overlay, settings.mode === 'light' && { backgroundColor: 'rgba(34,47,68,0.28)' }]}>
-        <View style={[styles.keyboardContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.keyboardContainer, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.1)' }]}>
           {/* Display & Pointer Status */}
           <View style={styles.displayRow}>
-            <View style={[styles.inputPill, { backgroundColor: theme.input, borderColor: theme.border }]}>
-              <MaterialIcons name="search" size={22} color={COLORS.primaryGlow} />
+            <View style={[styles.inputPill, { backgroundColor: theme.input, borderColor: 'rgba(255,255,255,0.1)' }]}>
+              <MaterialIcons name="search" size={24} color={accentColor} />
               <Text style={[styles.displayText, { color: text ? theme.text : theme.textMuted }, !text && styles.displayTextPlaceholder]} numberOfLines={1}>
                 {text || 'Type with TV Remote D-Pad...'}
               </Text>
               {text.length > 0 && (
-                <KeyboardClearButton onPress={() => setText('')} theme={theme}>
-                  <MaterialIcons name="close" size={18} color={COLORS.textMuted} />
+                <KeyboardClearButton onPress={() => setText('')} theme={theme} accentColor={accentColor}>
+                  <MaterialIcons name="close" size={18} color="#FFFFFF" />
                 </KeyboardClearButton>
               )}
             </View>
 
-            <FocusableOpacity onPress={onClose} onFocus={closeFocus.onFocus} onBlur={closeFocus.onBlur} style={[styles.closeBtn, { backgroundColor: theme.card }, closeFocus.focused && styles.keyFocused, closeFocus.focused && closeFocus.focusStyle]}>
+            <TouchableOpacity
+              focusable
+              onFocus={() => {
+                setCloseFocused(true);
+                playTVFocusFeedback();
+              }}
+              onBlur={() => {
+                setCloseFocused(false);
+              }}
+              onPress={onClose}
+              style={[
+                styles.closeBtn,
+                { backgroundColor: theme.card, borderColor: 'rgba(255,255,255,0.1)' },
+                closeFocused && {
+                  backgroundColor: accentColor,
+                  borderColor: '#FFFFFF',
+                  borderWidth: 3.5,
+                  transform: [{ scale: 1.15 }],
+                  elevation: 20,
+                  shadowColor: accentColor,
+                  shadowRadius: 18,
+                },
+              ]}
+            >
               <MaterialIcons name="close" size={24} color="#FFFFFF" />
-            </FocusableOpacity>
+            </TouchableOpacity>
           </View>
 
           {/* Keyboard Keys */}
@@ -129,41 +179,61 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
               </View>
             ))}
           </View>
-          <Text style={[styles.keyboardHelp, { color: theme.textSub }]}>Use ↑ ↓ ← → to choose a key · Press OK to enter it · Choose SEARCH when ready</Text>
+          <Text style={[styles.keyboardHelp, { color: theme.textSub }]}>Use ↑ ↓ ← → to choose a key · Press OK to enter · Choose SEARCH when ready</Text>
         </View>
       </View>
     </Modal>
   );
 }
 
-function KeyboardClearButton({ onPress, children, theme }) {
-  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
+function KeyboardClearButton({ onPress, children, theme, accentColor }) {
+  const [focused, setFocused] = useState(false);
   return (
-    <FocusableOpacity onPress={() => { playTVSelectFeedback(); onPress(); }} onFocus={onFocus} onBlur={onBlur} style={[styles.clearMiniBtn, { backgroundColor: theme.card }, focused && styles.keyFocused, focused && focusStyle]}>
+    <TouchableOpacity
+      focusable
+      onFocus={() => {
+        setFocused(true);
+        playTVFocusFeedback();
+      }}
+      onBlur={() => {
+        setFocused(false);
+      }}
+      onPress={() => {
+        playTVSelectFeedback();
+        onPress();
+      }}
+      style={[
+        styles.clearMiniBtn,
+        { backgroundColor: theme.card },
+        focused && {
+          backgroundColor: accentColor,
+          borderColor: '#FFFFFF',
+          borderWidth: 2,
+          borderRadius: 6,
+        },
+      ]}
+    >
       {children}
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(9, 10, 15, 0.92)',
+    backgroundColor: 'rgba(9, 10, 15, 0.94)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   keyboardContainer: {
-    width: isTV ? '80%' : '100%',
-    maxWidth: 720,
-    backgroundColor: COLORS.surface,
+    width: isTV ? '85%' : '100%',
+    maxWidth: 780,
+    backgroundColor: '#111521',
     borderRadius: 24,
-    padding: 24,
-    borderWidth: 2,
-    borderTopColor: COLORS.cardHighlight,
-    borderLeftColor: COLORS.cardHighlight,
-    borderBottomColor: COLORS.cardShadow,
-    borderRightColor: COLORS.cardShadow,
+    padding: 26,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.8,
@@ -174,49 +244,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 22,
   },
   inputPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: COLORS.input,
+    gap: 12,
+    backgroundColor: '#0E121C',
     borderRadius: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 14,
     borderWidth: 1.5,
-    borderTopColor: COLORS.cardShadow,
-    borderLeftColor: COLORS.cardShadow,
-    borderBottomColor: COLORS.cardHighlight,
-    borderRightColor: COLORS.cardHighlight,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   displayText: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: isTV ? 20 : 16,
+    fontSize: isTV ? 22 : 16,
     fontWeight: '700',
   },
   displayTextPlaceholder: {
-    color: COLORS.textMuted,
+    color: '#666B85',
     fontWeight: '500',
   },
   clearMiniBtn: {
-    padding: 4,
+    padding: 6,
   },
   closeBtn: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 14,
-    backgroundColor: COLORS.card,
+    backgroundColor: '#171C29',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.cardHighlight,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   keysWrap: {
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   row: {
     flexDirection: 'row',
@@ -224,57 +291,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   key: {
-    backgroundColor: COLORS.card,
+    backgroundColor: '#171C29',
     borderRadius: 12,
     paddingVertical: isTV ? 12 : 9,
     paddingHorizontal: isTV ? 16 : 10,
-    minWidth: isTV ? 52 : 32,
+    minWidth: isTV ? 54 : 32,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderTopColor: COLORS.cardHighlight,
-    borderLeftColor: COLORS.cardHighlight,
-    borderBottomColor: COLORS.cardShadow,
-    borderRightColor: COLORS.cardShadow,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   keyWide: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 24,
     flex: 1,
-    maxWidth: 160,
+    maxWidth: 180,
   },
   keySearch: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primaryGlow,
-  },
-  keyFocused: {
-    borderColor: '#FFFFFF',
-    borderWidth: 3,
-    backgroundColor: COLORS.primary,
-    transform: [{ scale: 1.15 }],
-    shadowColor: COLORS.primaryGlow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 16,
+    backgroundColor: '#FF5722',
+    borderColor: '#FF5722',
   },
   keyText: {
-    color: COLORS.text,
-    fontSize: isTV ? 15 : 13,
+    fontSize: isTV ? 16 : 13,
     fontWeight: '700',
   },
-  keyTextFocused: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-  },
-  keySearchText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-  },
   keyboardHelp: {
-    color: COLORS.textSub,
     fontSize: isTV ? 13 : 11,
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: 18,
     fontWeight: '600',
+    color: '#8E95A5',
   },
 });

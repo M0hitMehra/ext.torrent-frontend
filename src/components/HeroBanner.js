@@ -150,14 +150,17 @@ function HeroPlayButton({ onPress, label }) {
         styles.playBtn,
         focused && {
           borderWidth: 3.5,
-          borderColor: focusColor,
-          transform: [{ scale: 1.08 }],
+          borderColor: '#FFFFFF',
+          borderTopColor: '#FFFFFF',
+          borderBottomColor: '#FFFFFF',
+          borderLeftColor: '#FFFFFF',
+          borderRightColor: '#FFFFFF',
+          transform: [{ scale: 1.10 }],
           shadowColor: focusColor,
           shadowOpacity: 1,
-          shadowRadius: 18,
-          elevation: 16,
+          shadowRadius: 20,
+          elevation: 20,
         },
-        focused && focusStyle,
       ]}
     >
       <MaterialIcons name="play-arrow" size={20} color="#FFFFFF" />
@@ -169,7 +172,7 @@ function HeroPlayButton({ onPress, label }) {
 function HeroInfoButton({ onPress, label, theme }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   const { settings } = useAppSettings();
-  const focusColor = settings.focusColor || COLORS.primary;
+  const focusColor = (settings.focusColor && settings.focusColor !== '#FFFFFF') ? settings.focusColor : '#FF5722';
 
   return (
     <FocusableOpacity
@@ -182,14 +185,17 @@ function HeroInfoButton({ onPress, label, theme }) {
         { backgroundColor: 'rgba(255, 255, 255, 0.15)', borderColor: 'rgba(255, 255, 255, 0.25)' },
         focused && {
           borderWidth: 3.5,
-          borderColor: focusColor,
-          transform: [{ scale: 1.08 }],
+          borderColor: '#FFFFFF',
+          borderTopColor: '#FFFFFF',
+          borderBottomColor: '#FFFFFF',
+          borderLeftColor: '#FFFFFF',
+          borderRightColor: '#FFFFFF',
+          transform: [{ scale: 1.10 }],
           shadowColor: focusColor,
           shadowOpacity: 1,
-          shadowRadius: 18,
-          elevation: 16,
+          shadowRadius: 20,
+          elevation: 20,
         },
-        focused && focusStyle,
       ]}
     >
       <MaterialIcons name="info-outline" size={18} color="#FFFFFF" />
@@ -201,7 +207,7 @@ function HeroInfoButton({ onPress, label, theme }) {
 function HeroWatchlistButton({ inWatchlist, onPress, theme }) {
   const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   const { settings } = useAppSettings();
-  const focusColor = settings.focusColor || COLORS.primary;
+  const focusColor = (settings.focusColor && settings.focusColor !== '#FFFFFF') ? settings.focusColor : '#FF5722';
 
   return (
     <FocusableOpacity
@@ -217,14 +223,17 @@ function HeroWatchlistButton({ inWatchlist, onPress, theme }) {
         },
         focused && {
           borderWidth: 3.5,
-          borderColor: focusColor,
-          transform: [{ scale: 1.08 }],
+          borderColor: '#FFFFFF',
+          borderTopColor: '#FFFFFF',
+          borderBottomColor: '#FFFFFF',
+          borderLeftColor: '#FFFFFF',
+          borderRightColor: '#FFFFFF',
+          transform: [{ scale: 1.10 }],
           shadowColor: focusColor,
           shadowOpacity: 1,
-          shadowRadius: 18,
-          elevation: 16,
+          shadowRadius: 20,
+          elevation: 20,
         },
-        focused && focusStyle,
       ]}
     >
       <MaterialIcons

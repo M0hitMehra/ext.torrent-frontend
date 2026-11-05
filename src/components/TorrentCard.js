@@ -75,17 +75,24 @@ export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false
         style,
         {
           backgroundColor: theme.card,
-          borderColor: focused ? focusColor : theme.border,
+          borderColor: theme.border,
+          borderTopColor: theme.border,
+          borderBottomColor: theme.border,
+          borderLeftColor: theme.border,
+          borderRightColor: theme.border,
         },
         focused && [
           styles.cardFocused,
           {
-            borderColor: focusColor,
+            borderColor: '#FFFFFF',
+            borderTopColor: '#FFFFFF',
+            borderBottomColor: '#FFFFFF',
+            borderLeftColor: '#FFFFFF',
+            borderRightColor: '#FFFFFF',
             shadowColor: focusColor,
-            transform: [{ scale: isTV ? 1.08 : 1.04 }],
+            transform: [{ scale: isTV ? 1.10 : 1.04 }],
           },
         ],
-        focused && focusStyle,
       ]}
     >
       {/* ─── TV REMOTE FOCUS POINTER BEACON (Appears on D-pad Focus) ─── */}
