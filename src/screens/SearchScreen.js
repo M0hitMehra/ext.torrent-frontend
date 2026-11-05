@@ -8,7 +8,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList, StyleSheet,
-  Platform, Keyboard,
+  Platform, Keyboard, TouchableOpacity,
 } from 'react-native';
 import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';

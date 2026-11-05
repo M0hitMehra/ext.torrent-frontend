@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Platform, Image, Linking, Alert, ActivityIndicator,
+  View, Text, ScrollView, StyleSheet, Platform, Image, Linking, Alert, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
