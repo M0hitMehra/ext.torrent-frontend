@@ -1,22 +1,30 @@
 /**
  * HomeScreen.js
- * High-contrast Neumorphic TV & Mobile dashboard.
+ * Netflix-style Glassmorphic Cinema Dashboard for Mobile and Android TV.
  * Features:
- *  - YouTube TV style left-side navigation rail (TV only)
- *  - High-visibility focus highlights with audio-haptic feedback
- *  - Categorized browsing & trending torrents
- *  - TV on-screen keyboard integration
+ *  - High-res dynamic Hero Billboard with backdrop, badges, and quick actions
+ *  - Netflix horizontal poster carousels for all categories
+ *  - High-visibility TV Remote Highlighting with audio-haptic feedback
+ *  - Persistent Watchlist and Continue Watching shelves
+ *  - D-pad focus indicators on all tiles
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, Platform, StatusBar, ScrollView,
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  Platform,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, CATEGORIES } from '../constants';
-import { getTrending, getLatest } from '../api/torrentApi';
+import { getTrending, getLatest, browseTorrents } from '../api/torrentApi';
 import { TorrentCard } from '../components/TorrentCard';
+import { HeroBanner } from '../components/HeroBanner';
 import { TVKeyboard } from '../components/TVKeyboard';
 import { TVNavigationRail } from '../components/TVNavigationRail';
 import { LoadingSpinner, ErrorView, SectionHeader } from '../components/Common';
@@ -45,12 +53,23 @@ export default function HomeScreen({ navigation }) {
     return () => unsub();
   }, [reloadUserData]);
 
+  // Catalog shelves fetchers
   const {
     data: trendingData,
     loading: trendingLoading,
     error: trendingError,
     refetch: refetchTrending,
   } = useFetch(() => getTrending(selectedCategory), [selectedCategory]);
+
+  const {
+    data: moviesData,
+    loading: moviesLoading,
+  } = useFetch(() => browseTorrents({ category: 'movies', sort: 'seeders', order: 'desc' }), []);
+
+  const {
+    data: tvData,
+    loading: tvLoading,
+  } = useFetch(() => browseTorrents({ category: 'tv', sort: 'seeders', order: 'desc' }), []);
 
   const {
     data: latestData,
@@ -69,11 +88,13 @@ export default function HomeScreen({ navigation }) {
     navigation.navigate('Browse', { category: slug });
   }, [navigation]);
 
+  const heroItem = trendingData?.torrents?.[0] || moviesData?.torrents?.[0] || null;
+
   return (
     <View style={[styles.outerContainer, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle={settings.mode === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.bg} />
 
-      {/* ─── YOUTUBE TV LEFT NAVIGATION RAIL ─── */}
+      {/* ─── YOUTUBE TV LEFT NAVIGATION RAIL (TV only) ─── */}
       <TVNavigationRail
         currentRoute="Home"
         onNavigate={(route) => navigation.navigate(route)}
@@ -81,124 +102,199 @@ export default function HomeScreen({ navigation }) {
 
       {/* ─── MAIN CONTENT AREA ─── */}
       <View style={[styles.mainContent, { backgroundColor: theme.bg }]}>
-        {/* ─── NEUMORPHIC TOP BAR ─── */}
+        {/* ─── TOP BAR WITH SEARCH ─── */}
         <View style={[styles.header, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.headerLeft}>
             <View style={[styles.logoCircle, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <MaterialIcons name="local-movies" size={24} color={COLORS.primaryGlow} />
+              <MaterialIcons name="local-movies" size={24} color={COLORS.primary} />
             </View>
             <View>
               <Text style={[styles.appTitle, { color: theme.text }]}>ExtTorrent</Text>
-              <Text style={[styles.appSub, { color: theme.textMuted }]}>MOVIES · SERIES · MORE</Text>
+              <Text style={[styles.appSub, { color: theme.textMuted }]}>CINEMA GLASS · NETFLIX TV</Text>
             </View>
           </View>
 
-          {/* Focusable Search Trigger Button */}
           <SearchTriggerButton
             onPress={() => isTV ? setKeyboardVisible(true) : navigation.navigate('Search', {})}
           />
         </View>
 
         <ScrollView
+          showsVerticalVerticalIndicator={false}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
-          {isTV && (
-            <View style={[styles.tvHero, { backgroundColor: settings.mode === 'light' ? 'rgba(255,255,255,0.72)' : '#20233A', borderColor: theme.border }]}>
-              <View style={styles.heroCopy}>
-                <Text style={styles.heroEyebrow}>YOUR TORRENT LIBRARY</Text>
-                <Text style={[styles.heroTitle, { color: theme.text }]}>Find your next watch.</Text>
-                <Text style={[styles.heroBody, { color: theme.textSub }]}>Use the remote to move between Search, Home and Browse. Press OK to choose.</Text>
-              </View>
-              <View style={styles.heroActions}>
-                <HeroAction
-                  icon="search"
-                  label="Search titles"
-                  onPress={() => setKeyboardVisible(true)}
-                  primary
+          {/* ─── NETFLIX BILLBOARD HERO BANNER ─── */}
+          {heroItem && (
+            <HeroBanner
+              torrent={heroItem}
+              onStream={handleTorrentPress}
+              onDetails={handleTorrentPress}
+            />
+          )}
+
+          {/* ─── CATEGORY CHIPS SHELF ─── */}
+          <View style={styles.sectionWrap}>
+            <SectionHeader title="Categories" icon="grid-view" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
+              {CATEGORIES.map((cat) => (
+                <CategoryChip
+                  key={cat.slug}
+                  cat={cat}
+                  selected={selectedCategory === cat.slug}
+                  onPress={() => setSelectedCategory(cat.slug)}
+                  onLongPress={() => handleCategoryPress(cat.slug)}
                 />
-                <HeroAction
-                  icon="explore"
-                  label="Browse catalog"
-                  onPress={() => handleCategoryPress(selectedCategory)}
-                />
-              </View>
-              <View style={styles.remoteHint}>
-                <MaterialIcons name="gamepad" size={17} color={COLORS.primaryGlow} />
-                <Text style={styles.remoteHintText}>↑ ↓ MOVE   ·   OK SELECT   ·   BACK RETURN</Text>
-              </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* ─── SHELF 1: MY WATCHLIST (When populated) ─── */}
+          {watchlist.length > 0 && (
+            <View style={styles.sectionWrap}>
+              <SectionHeader
+                title="⭐ My Watchlist"
+                icon="bookmark"
+                onSeeAll={() => {}}
+              />
+              <FlatList
+                data={watchlist}
+                keyExtractor={(item, i) => String(item.id || i)}
+                renderItem={({ item }) => (
+                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
+                )}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.shelfListContent}
+              />
             </View>
           )}
 
-          {/* Categories Section */}
-          <SectionHeader title="Browse Categories" icon="grid-view" />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catRow}>
-            {CATEGORIES.map((cat, idx) => (
-              <CategoryChip
-                key={cat.slug}
-                cat={cat}
-                selected={selectedCategory === cat.slug}
-                onPress={() => setSelectedCategory(cat.slug)}
-                onLongPress={() => handleCategoryPress(cat.slug)}
+          {/* ─── SHELF 2: CONTINUE WATCHING (When populated) ─── */}
+          {watchHistory.length > 0 && (
+            <View style={styles.sectionWrap}>
+              <SectionHeader
+                title="🕒 Continue Watching"
+                icon="history"
+                onSeeAll={() => {}}
               />
-            ))}
-          </ScrollView>
-
-          {/* Trending Torrents */}
-          <SectionHeader
-            title="🔥 Trending Now"
-            icon="trending-up"
-            onSeeAll={() => navigation.navigate('Browse', { category: selectedCategory, tab: 'trending' })}
-          />
-          {trendingLoading ? (
-            <LoadingSpinner message="Fetching trending torrents..." />
-          ) : trendingError ? (
-            <ErrorView message={trendingError} onRetry={refetchTrending} />
-          ) : (
-            <FlatList
-              data={trendingData?.torrents?.slice(0, 10) || []}
-              keyExtractor={(item, i) => item.id || String(i)}
-              renderItem={({ item, index }) => (
-                <TorrentCard
-                  torrent={item}
-                  onPress={handleTorrentPress}
-                  hasPreferredFocus={false}
-                  style={isTV ? styles.tvTorrentCard : undefined}
-                />
-              )}
-              horizontal={isTV}
-              showsHorizontalScrollIndicator={false}
-              scrollEnabled={isTV}
-              contentContainerStyle={isTV ? styles.tvShelf : undefined}
-              ListEmptyComponent={
-                <View style={styles.emptyCard}>
-                  <Text style={styles.emptyText}>Loading torrents from indexer...</Text>
-                </View>
-              }
-            />
+              <FlatList
+                data={watchHistory}
+                keyExtractor={(item, i) => String(item.id || i)}
+                renderItem={({ item }) => (
+                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
+                )}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.shelfListContent}
+              />
+            </View>
           )}
 
-          {/* Latest Releases */}
-          <SectionHeader
-            title="⚡ Latest Uploads"
-            icon="new-releases"
-            onSeeAll={() => navigation.navigate('Browse', { tab: 'latest' })}
-          />
-          {latestLoading ? (
-            <LoadingSpinner message="Loading latest torrents..." />
-          ) : (
-            <FlatList
-              data={latestData?.torrents?.slice(0, 8) || []}
-              keyExtractor={(item, i) => item.id || String(i)}
-              renderItem={({ item }) => (
-                <TorrentCard torrent={item} onPress={handleTorrentPress} style={isTV ? styles.tvTorrentCard : undefined} />
-              )}
-              horizontal={isTV}
-              showsHorizontalScrollIndicator={false}
-              scrollEnabled={isTV}
-              contentContainerStyle={isTV ? styles.tvShelf : undefined}
+          {/* ─── SHELF 3: TRENDING NOW ─── */}
+          <View style={styles.sectionWrap}>
+            <SectionHeader
+              title="🔥 Trending Now"
+              icon="trending-up"
+              onSeeAll={() => navigation.navigate('Browse', { category: selectedCategory, tab: 'trending' })}
             />
-          )}
+            {trendingLoading ? (
+              <LoadingSpinner message="Loading trending releases..." />
+            ) : trendingError ? (
+              <ErrorView message={trendingError} onRetry={refetchTrending} />
+            ) : (
+              <FlatList
+                data={trendingData?.torrents?.slice(0, 15) || []}
+                keyExtractor={(item, i) => item.id || String(i)}
+                renderItem={({ item, index }) => (
+                  <TorrentCard
+                    torrent={item}
+                    onPress={handleTorrentPress}
+                    hasPreferredFocus={isTV && index === 0}
+                  />
+                )}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.shelfListContent}
+                ListEmptyComponent={
+                  <View style={styles.emptyCard}>
+                    <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                      Loading verified torrents...
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+
+          {/* ─── SHELF 4: POPULAR MOVIES ─── */}
+          <View style={styles.sectionWrap}>
+            <SectionHeader
+              title="🎬 Top Movies (1080p / 4K)"
+              icon="movie"
+              onSeeAll={() => navigation.navigate('Browse', { category: 'movies', tab: 'seeders' })}
+            />
+            {moviesLoading ? (
+              <LoadingSpinner message="Loading movies..." />
+            ) : (
+              <FlatList
+                data={moviesData?.torrents?.slice(0, 15) || []}
+                keyExtractor={(item, i) => item.id || String(i)}
+                renderItem={({ item }) => (
+                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
+                )}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.shelfListContent}
+              />
+            )}
+          </View>
+
+          {/* ─── SHELF 5: POPULAR TV SERIES ─── */}
+          <View style={styles.sectionWrap}>
+            <SectionHeader
+              title="📺 Binge-Worthy TV Shows"
+              icon="tv"
+              onSeeAll={() => navigation.navigate('Browse', { category: 'tv', tab: 'seeders' })}
+            />
+            {tvLoading ? (
+              <LoadingSpinner message="Loading TV series..." />
+            ) : (
+              <FlatList
+                data={tvData?.torrents?.slice(0, 15) || []}
+                keyExtractor={(item, i) => item.id || String(i)}
+                renderItem={({ item }) => (
+                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
+                )}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.shelfListContent}
+              />
+            )}
+          </View>
+
+          {/* ─── SHELF 6: LATEST RELEASES ─── */}
+          <View style={styles.sectionWrap}>
+            <SectionHeader
+              title="⚡ Fresh Verified Uploads"
+              icon="new-releases"
+              onSeeAll={() => navigation.navigate('Browse', { tab: 'latest' })}
+            />
+            {latestLoading ? (
+              <LoadingSpinner message="Loading latest torrents..." />
+            ) : (
+              <FlatList
+                data={latestData?.torrents?.slice(0, 15) || []}
+                keyExtractor={(item, i) => item.id || String(i)}
+                renderItem={({ item }) => (
+                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
+                )}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.shelfListContent}
+              />
+            )}
+          </View>
         </ScrollView>
       </View>
 
@@ -219,10 +315,15 @@ function SearchTriggerButton({ onPress }) {
 
   return (
     <FocusableOpacity
-      hasTVPreferredFocus={isTV}
+      hasTVPreferredFocus={false}
       accessibilityRole="button"
       accessibilityLabel="Search titles. Press OK to open search."
-      style={[styles.searchBarBtn, { backgroundColor: theme.input, borderColor: theme.border }, focused && styles.searchBarBtnFocused, focused && focusStyle]}
+      style={[
+        styles.searchBarBtn,
+        { backgroundColor: theme.input, borderColor: theme.border },
+        focused && styles.searchBarBtnFocused,
+        focused && focusStyle,
+      ]}
       activeOpacity={0.8}
       onPress={() => {
         playTVSelectFeedback();
@@ -234,36 +335,16 @@ function SearchTriggerButton({ onPress }) {
       <MaterialIcons
         name="search"
         size={20}
-        color={focused ? '#FFFFFF' : COLORS.primaryGlow}
+        color={focused ? '#FFFFFF' : COLORS.primary}
       />
       <Text style={[styles.searchBtnText, { color: focused ? '#fff' : theme.textMuted }, focused && styles.searchBtnTextFocused]}>
-        {focused ? 'PRESS OK TO TYPE' : 'Search movies, series...'}
+        {focused ? 'PRESS OK TO TYPE' : 'Search movies, series, 4K...'}
       </Text>
       {focused && (
         <View style={styles.searchPointerBeacon}>
           <Text style={styles.searchPointerText}>SELECT</Text>
         </View>
       )}
-    </FocusableOpacity>
-  );
-}
-
-function HeroAction({ icon, label, onPress, primary }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
-  const { settings } = useAppSettings();
-  const theme = getTheme(settings.mode);
-  return (
-    <FocusableOpacity
-      hasTVPreferredFocus={false}
-      onPress={() => { playTVSelectFeedback(); onPress(); }}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      activeOpacity={0.85}
-      style={[styles.heroAction, { backgroundColor: primary ? COLORS.primary : theme.card }, focused && styles.heroActionFocused, focused && focusStyle]}
-    >
-      <MaterialIcons name={icon} size={20} color="#fff" />
-      <Text style={styles.heroActionText}>{label}</Text>
-      <MaterialIcons name="chevron-right" size={20} color="#fff" />
     </FocusableOpacity>
   );
 }
@@ -275,13 +356,19 @@ function CategoryChip({ cat, selected, onPress, onLongPress }) {
 
   return (
     <FocusableOpacity
+      hasTVPreferredFocus={false}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
       style={[
         styles.catChip,
-        { backgroundColor: selected ? COLORS.primary : theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
-        selected && styles.catChipSelected,
+        {
+          backgroundColor: selected ? COLORS.primary : theme.card,
+          borderColor: selected ? COLORS.primary : theme.border,
+        },
         focused && styles.catChipFocused,
         focused && focusStyle,
       ]}
+      activeOpacity={0.8}
       onPress={() => {
         playTVSelectFeedback();
         onPress();
@@ -289,22 +376,20 @@ function CategoryChip({ cat, selected, onPress, onLongPress }) {
       onLongPress={onLongPress}
       onFocus={onFocus}
       onBlur={onBlur}
-      activeOpacity={0.8}
     >
       <MaterialIcons
         name={cat.icon}
         size={16}
-        color={selected || focused ? '#FFFFFF' : COLORS.textSub}
+        color={selected || focused ? '#FFFFFF' : theme.textSub}
       />
       <Text
         style={[
-          styles.catLabel,
-          { color: selected || focused ? '#fff' : theme.textSub },
-          selected && styles.catLabelSelected,
-          focused && styles.catLabelFocused,
+          styles.catText,
+          { color: selected || focused ? '#FFFFFF' : theme.textSub },
+          selected && styles.catTextSelected,
         ]}
       >
-        {cat.label}
+        {cat.name}
       </Text>
     </FocusableOpacity>
   );
@@ -314,144 +399,123 @@ const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: COLORS.bg,
   },
   mainContent: {
     flex: 1,
-    backgroundColor: COLORS.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? (isTV ? 18 : 44) : 16,
+    paddingHorizontal: isTV ? 28 : 16,
+    paddingTop: Platform.OS === 'android' ? 42 : 16,
     paddingBottom: 14,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1.5,
-    borderColor: COLORS.cardHighlight,
+    borderBottomWidth: 1,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   logoCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: COLORS.card,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderTopColor: COLORS.cardHighlight,
-    borderLeftColor: COLORS.cardHighlight,
-    borderBottomColor: COLORS.cardShadow,
-    borderRightColor: COLORS.cardShadow,
   },
-  appTitle: { color: COLORS.text, fontSize: 18, fontWeight: '900' },
-  appSub: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600', marginTop: 1 },
+  appTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  appSub: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginTop: 1,
+  },
   searchBarBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: COLORS.input,
-    borderRadius: 14,
+    paddingVertical: 9,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginLeft: 14,
-    borderWidth: 1,
-    borderTopColor: COLORS.cardShadow,
-    borderLeftColor: COLORS.cardShadow,
-    borderBottomColor: COLORS.cardHighlight,
-    borderRightColor: COLORS.cardHighlight,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    minWidth: isTV ? 280 : 160,
   },
   searchBarBtnFocused: {
-    backgroundColor: COLORS.primary,
     borderColor: '#FFFFFF',
-    borderWidth: 2.5,
-    transform: [{ scale: 1.04 }],
-    shadowColor: COLORS.primaryGlow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.95,
-    shadowRadius: 14,
-    elevation: 12,
+    backgroundColor: COLORS.primary,
+    transform: [{ scale: 1.05 }],
   },
-  searchBtnText: { color: COLORS.textMuted, fontSize: 13, flex: 1 },
-  searchBtnTextFocused: { color: '#FFFFFF', fontWeight: '800' },
+  searchBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  searchBtnTextFocused: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
   searchPointerBeacon: {
-    backgroundColor: COLORS.tvPointer,
-    paddingHorizontal: 7,
+    marginLeft: 'auto',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    borderRadius: 4,
   },
-  searchPointerText: { color: '#000000', fontSize: 9, fontWeight: '900' },
-  scroll: { padding: 18, paddingBottom: 60 },
-  tvHero: {
-    backgroundColor: '#20233A',
-    borderRadius: 24,
-    padding: 26,
+  searchPointerText: {
+    color: COLORS.primary,
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  scroll: {
+    paddingBottom: 50,
+    paddingTop: 16,
+    paddingHorizontal: isTV ? 28 : 16,
+  },
+  sectionWrap: {
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#353B5A',
-    minHeight: 210,
-    justifyContent: 'center',
-    overflow: 'hidden',
   },
-  heroCopy: { maxWidth: '65%' },
-  heroEyebrow: { color: COLORS.primaryGlow, fontSize: 12, fontWeight: '900', letterSpacing: 2, marginBottom: 8 },
-  heroTitle: { color: '#fff', fontSize: 32, fontWeight: '900', marginBottom: 8 },
-  heroBody: { color: '#C3C7D9', fontSize: 15, lineHeight: 22, maxWidth: 470 },
-  heroActions: { position: 'absolute', right: 24, top: 24, bottom: 54, width: 230, justifyContent: 'center', gap: 10 },
-  heroAction: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#34384E', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 2, borderColor: 'transparent' },
-  heroActionPrimary: { backgroundColor: COLORS.primary },
-  heroActionFocused: { borderColor: '#fff', transform: [{ scale: 1.04 }], shadowColor: COLORS.primaryGlow, shadowOpacity: 0.8, shadowRadius: 14, elevation: 12 },
-  heroActionText: { flex: 1, color: '#fff', fontSize: 15, fontWeight: '800' },
-  remoteHint: { position: 'absolute', bottom: 16, left: 26, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  remoteHintText: { color: '#C5C8D8', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  tvShelf: { paddingVertical: 8, paddingHorizontal: 4 },
-  tvTorrentCard: { width: 330, marginRight: 14 },
-  catRow: { marginBottom: 18, marginHorizontal: -4 },
+  catRow: {
+    paddingVertical: 6,
+    gap: 10,
+  },
   catChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginHorizontal: 4,
-    borderWidth: 1,
-    borderTopColor: COLORS.cardHighlight,
-    borderLeftColor: COLORS.cardHighlight,
-    borderBottomColor: COLORS.cardShadow,
-    borderRightColor: COLORS.cardShadow,
-  },
-  catChipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginRight: 8,
   },
   catChipFocused: {
     borderColor: '#FFFFFF',
-    borderWidth: 2.5,
-    backgroundColor: COLORS.surfaceElevated,
-    transform: [{ scale: 1.1 }],
-    shadowColor: COLORS.primaryGlow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.95,
-    shadowRadius: 14,
-    elevation: 12,
+    backgroundColor: COLORS.primary,
+    transform: [{ scale: 1.08 }],
   },
-  catLabel: { color: COLORS.textSub, fontSize: 12, fontWeight: '700' },
-  catLabelSelected: { color: '#fff' },
-  catLabelFocused: { color: '#FFFFFF', fontWeight: '900' },
+  catText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  catTextSelected: {
+    fontWeight: '800',
+  },
+  shelfListContent: {
+    paddingVertical: 8,
+    paddingRight: 20,
+  },
   emptyCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
-    padding: 20,
+    padding: 24,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  emptyText: { color: COLORS.textMuted, fontSize: 13 },
+  emptyText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });

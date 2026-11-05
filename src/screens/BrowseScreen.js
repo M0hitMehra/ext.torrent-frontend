@@ -133,6 +133,8 @@ export default function BrowseScreen({ navigation, route }) {
           <EmptyView message="No torrents found in this category." />
         ) : (
           <FlatList
+            key={isTV ? 'b-tv' : 'b-mob'}
+            numColumns={isTV ? 4 : 2}
             data={data}
             keyExtractor={(item, i) => item.id || String(i)}
             renderItem={({ item, index }) => (
@@ -140,8 +142,10 @@ export default function BrowseScreen({ navigation, route }) {
                 torrent={item}
                 onPress={(t) => navigation.navigate('TorrentDetail', { torrent: t })}
                 hasPreferredFocus={index === 0 && isTV}
+                style={{ flex: 1, maxWidth: isTV ? '25%' : '50%', marginBottom: 14 }}
               />
             )}
+            columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 4 }}
             contentContainerStyle={styles.listContent}
             onEndReached={loadMore}
             onEndReachedThreshold={0.3}
