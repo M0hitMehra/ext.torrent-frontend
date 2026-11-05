@@ -97,8 +97,10 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
     }
   }, visible);
 
+  if (!visible || !torrent || !magnet) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <View style={styles.modalOverlayRoot}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
         <View style={[styles.sheet, { backgroundColor: theme.surface, borderColor: theme.border }]} onStartShouldSetResponder={() => true}>
           {/* Header */}
@@ -164,7 +166,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
           </View>
         </View>
       </TouchableOpacity>
-    </Modal>
+    </View>
   );
 }
 
@@ -222,6 +224,11 @@ function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress,
 }
 
 const styles = StyleSheet.create({
+  modalOverlayRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(5, 6, 9, 0.85)',

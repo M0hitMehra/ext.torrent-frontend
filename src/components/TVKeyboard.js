@@ -141,8 +141,10 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
     }
   }, visible);
 
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <View style={styles.modalOverlayRoot}>
       <View style={[styles.overlay, settings.mode === 'light' && { backgroundColor: 'rgba(34,47,68,0.28)' }]}>
         <View style={[styles.keyboardContainer, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.1)' }]}>
           {/* Display & Pointer Status */}
@@ -188,11 +190,16 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
           <Text style={[styles.keyboardHelp, { color: theme.textSub }]}>Use ↑ ↓ ← → to choose a key · Press OK to enter · Choose SEARCH when ready</Text>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  modalOverlayRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(9, 10, 15, 0.94)',
