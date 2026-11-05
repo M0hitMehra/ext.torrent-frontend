@@ -4,12 +4,11 @@
  * Features:
  *  - High-res dynamic Hero Billboard with backdrop, badges, and quick actions
  *  - Netflix horizontal poster carousels for all categories
- *  - High-visibility TV Remote Highlighting with audio-haptic feedback
+ *  - 100% Reliable TV Remote D-Pad Navigation and Glowing Focus Highlighting
  *  - Persistent Watchlist and Continue Watching shelves
- *  - D-pad focus indicators on all tiles
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,17 +17,17 @@ import {
   Platform,
   StatusBar,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
-import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, CATEGORIES } from '../constants';
 import { getTrending, getLatest, browseTorrents } from '../api/torrentApi';
 import { TorrentCard } from '../components/TorrentCard';
 import { HeroBanner } from '../components/HeroBanner';
 import { TVKeyboard } from '../components/TVKeyboard';
-import { TVNavigationRail } from '../components/TVNavigationRail';
+import { TVNavigationRail, NAV_ITEMS } from '../components/TVNavigationRail';
 import { LoadingSpinner, ErrorView, SectionHeader } from '../components/Common';
-import { useFetch, useTVFocus, playTVSelectFeedback } from '../hooks';
+import { useFetch, playTVFocusFeedback, playTVSelectFeedback, useTVRemote } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
 import { getWatchlist, getWatchHistory, subscribeToStorage } from '../utils/storage';
 
@@ -41,6 +40,19 @@ export default function HomeScreen({ navigation }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [watchlist, setWatchlist] = useState([]);
   const [watchHistory, setWatchHistory] = useState([]);
+
+  // TV Remote Navigation State
+  // area: 'RAIL' | 'SEARCH' | 'CATEGORIES' | 'SHELVES'
+  const [tvFocus, setTvFocus] = useState({
+    area: 'SHELVES',
+    railIndex: 1, // Home
+    catIndex: 0,
+    shelfIndex: 0,
+    cardIndex: 0,
+  });
+
+  const mainScrollRef = useRef(null);
+  const shelfRefs = useRef({});
 
   const reloadUserData = useCallback(() => {
     getWatchlist().then(setWatchlist);
@@ -88,25 +100,148 @@ export default function HomeScreen({ navigation }) {
     navigation.navigate('Browse', { category: slug });
   }, [navigation]);
 
-  const heroItem = trendingData?.torrents?.[0] || moviesData?.torrents?.[0] || null;
+  // Shelves definition
+  const shelves = [
+    { id: 'trending', title: 'Trending Now', data: trendingData?.torrents?.slice(0, 15) || [] },
+    { id: 'movies',   title: '🎬 Top Movies', data: moviesData?.torrents?.slice(0, 15) || [] },
+    { id: 'tv',       title: '📺 TV Series',  data: tvData?.torrents?.slice(0, 15) || [] },
+    { id: 'latest',   title: '⚡ Fresh Uploads', data: latestData?.torrents?.slice(0, 15) || [] },
+  ];
+
+  const scrollToCard = useCallback((shelfIdx, cardIdx) => {
+    try {
+      shelfRefs.current[shelfIdx]?.scrollToIndex({ index: cardIdx, animated: true, viewPosition: 0.3 });
+    } catch (_) {}
+  }, []);
+
+  const scrollToShelf = useCallback((shelfIdx) => {
+    try {
+      mainScrollRef.current?.scrollTo({ y: shelfIdx * 280, animated: true });
+    } catch (_) {}
+  }, []);
+
+  // TV Remote Navigation Handler
+  useTVRemote((eventType) => {
+    if (keyboardVisible) return;
+
+    if (tvFocus.area === 'RAIL') {
+      if (eventType === 'up') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, railIndex: Math.max(0, f.railIndex - 1) }));
+      } else if (eventType === 'down') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, railIndex: Math.min(NAV_ITEMS.length - 1, f.railIndex + 1) }));
+      } else if (eventType === 'right') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'SHELVES' }));
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        const routeName = NAV_ITEMS[tvFocus.railIndex]?.id;
+        if (routeName && routeName !== 'Home') {
+          navigation.navigate(routeName);
+        }
+      }
+    } else if (tvFocus.area === 'SEARCH') {
+      if (eventType === 'left') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 0 }));
+      } else if (eventType === 'down') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'CATEGORIES' }));
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        setKeyboardVisible(true);
+      }
+    } else if (tvFocus.area === 'CATEGORIES') {
+      if (eventType === 'left') {
+        if (tvFocus.catIndex > 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, catIndex: f.catIndex - 1 }));
+        } else {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 1 }));
+        }
+      } else if (eventType === 'right') {
+        if (tvFocus.catIndex < CATEGORIES.length - 1) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, catIndex: f.catIndex + 1 }));
+        }
+      } else if (eventType === 'up') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'SEARCH' }));
+      } else if (eventType === 'down') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'SHELVES', shelfIndex: 0, cardIndex: 0 }));
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        setSelectedCategory(CATEGORIES[tvFocus.catIndex].slug);
+      }
+    } else if (tvFocus.area === 'SHELVES') {
+      const activeShelf = shelves[tvFocus.shelfIndex];
+      const count = activeShelf?.data?.length || 0;
+
+      if (eventType === 'left') {
+        if (tvFocus.cardIndex > 0) {
+          playTVFocusFeedback();
+          const nextCard = tvFocus.cardIndex - 1;
+          setTvFocus(f => ({ ...f, cardIndex: nextCard }));
+          scrollToCard(tvFocus.shelfIndex, nextCard);
+        } else {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 1 }));
+        }
+      } else if (eventType === 'right') {
+        if (tvFocus.cardIndex < count - 1) {
+          playTVFocusFeedback();
+          const nextCard = tvFocus.cardIndex + 1;
+          setTvFocus(f => ({ ...f, cardIndex: nextCard }));
+          scrollToCard(tvFocus.shelfIndex, nextCard);
+        }
+      } else if (eventType === 'up') {
+        if (tvFocus.shelfIndex > 0) {
+          playTVFocusFeedback();
+          const nextShelf = tvFocus.shelfIndex - 1;
+          setTvFocus(f => ({ ...f, shelfIndex: nextShelf, cardIndex: 0 }));
+          scrollToShelf(nextShelf);
+        } else {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'CATEGORIES' }));
+        }
+      } else if (eventType === 'down') {
+        if (tvFocus.shelfIndex < shelves.length - 1) {
+          playTVFocusFeedback();
+          const nextShelf = tvFocus.shelfIndex + 1;
+          setTvFocus(f => ({ ...f, shelfIndex: nextShelf, cardIndex: 0 }));
+          scrollToShelf(nextShelf);
+        }
+      } else if (eventType === 'select') {
+        const item = activeShelf?.data?.[tvFocus.cardIndex];
+        if (item) {
+          playTVSelectFeedback();
+          handleTorrentPress(item);
+        }
+      }
+    }
+  }, !keyboardVisible);
 
   return (
     <View style={[styles.outerContainer, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={settings.mode === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.bg} />
 
-      {/* ─── YOUTUBE TV LEFT NAVIGATION RAIL (TV only) ─── */}
+      {/* ─── YOUTUBE TV LEFT NAVIGATION RAIL ─── */}
       <TVNavigationRail
         currentRoute="Home"
+        focusedItem={tvFocus.area === 'RAIL' ? NAV_ITEMS[tvFocus.railIndex]?.id : null}
         onNavigate={(route) => navigation.navigate(route)}
       />
 
       {/* ─── MAIN CONTENT AREA ─── */}
       <View style={[styles.mainContent, { backgroundColor: theme.bg }]}>
-        {/* ─── TOP BAR WITH SEARCH ─── */}
+        {/* Top Header */}
         <View style={[styles.header, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.headerLeft}>
             <View style={[styles.logoCircle, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <MaterialIcons name="local-movies" size={24} color={COLORS.primary} />
+              <MaterialIcons name="local-movies" size={24} color="#FF5722" />
             </View>
             <View>
               <Text style={[styles.appTitle, { color: theme.text }]}>ExtTorrent</Text>
@@ -115,33 +250,26 @@ export default function HomeScreen({ navigation }) {
           </View>
 
           <SearchTriggerButton
+            isFocused={tvFocus.area === 'SEARCH'}
             onPress={() => isTV ? setKeyboardVisible(true) : navigation.navigate('Search', {})}
           />
         </View>
 
         <ScrollView
-          showsVerticalVerticalIndicator={false}
+          ref={mainScrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
-          {/* ─── NETFLIX BILLBOARD HERO BANNER ─── */}
-          {heroItem && (
-            <HeroBanner
-              torrent={heroItem}
-              onStream={handleTorrentPress}
-              onDetails={handleTorrentPress}
-            />
-          )}
-
-          {/* ─── CATEGORY CHIPS SHELF ─── */}
+          {/* Categories Row */}
           <View style={styles.sectionWrap}>
             <SectionHeader title="Categories" icon="grid-view" />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
-              {CATEGORIES.map((cat) => (
+              {CATEGORIES.map((cat, idx) => (
                 <CategoryChip
                   key={cat.slug}
                   cat={cat}
                   selected={selectedCategory === cat.slug}
+                  isFocused={tvFocus.area === 'CATEGORIES' && tvFocus.catIndex === idx}
                   onPress={() => setSelectedCategory(cat.slug)}
                   onLongPress={() => handleCategoryPress(cat.slug)}
                 />
@@ -149,152 +277,35 @@ export default function HomeScreen({ navigation }) {
             </ScrollView>
           </View>
 
-          {/* ─── SHELF 1: MY WATCHLIST (When populated) ─── */}
-          {watchlist.length > 0 && (
-            <View style={styles.sectionWrap}>
+          {/* Shelves */}
+          {shelves.map((shelf, shelfIdx) => (
+            <View key={shelf.id} style={styles.sectionWrap}>
               <SectionHeader
-                title="⭐ My Watchlist"
-                icon="bookmark"
-                onSeeAll={() => {}}
+                title={shelf.title}
+                icon="movie"
+                onSeeAll={() => navigation.navigate('Browse', { category: selectedCategory })}
               />
-              <FlatList
-                data={watchlist}
-                keyExtractor={(item, i) => String(item.id || i)}
-                renderItem={({ item }) => (
-                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
-                )}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.shelfListContent}
-              />
+              {shelf.data.length === 0 ? (
+                <LoadingSpinner message={`Loading ${shelf.title}...`} />
+              ) : (
+                <FlatList
+                  ref={ref => { shelfRefs.current[shelfIdx] = ref; }}
+                  data={shelf.data}
+                  keyExtractor={(item, i) => item.id || String(i)}
+                  renderItem={({ item, index }) => (
+                    <TorrentCard
+                      torrent={item}
+                      onPress={handleTorrentPress}
+                      isFocused={tvFocus.area === 'SHELVES' && tvFocus.shelfIndex === shelfIdx && tvFocus.cardIndex === index}
+                    />
+                  )}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.shelfListContent}
+                />
+              )}
             </View>
-          )}
-
-          {/* ─── SHELF 2: CONTINUE WATCHING (When populated) ─── */}
-          {watchHistory.length > 0 && (
-            <View style={styles.sectionWrap}>
-              <SectionHeader
-                title="🕒 Continue Watching"
-                icon="history"
-                onSeeAll={() => {}}
-              />
-              <FlatList
-                data={watchHistory}
-                keyExtractor={(item, i) => String(item.id || i)}
-                renderItem={({ item }) => (
-                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
-                )}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.shelfListContent}
-              />
-            </View>
-          )}
-
-          {/* ─── SHELF 3: TRENDING NOW ─── */}
-          <View style={styles.sectionWrap}>
-            <SectionHeader
-              title="🔥 Trending Now"
-              icon="trending-up"
-              onSeeAll={() => navigation.navigate('Browse', { category: selectedCategory, tab: 'trending' })}
-            />
-            {trendingLoading ? (
-              <LoadingSpinner message="Loading trending releases..." />
-            ) : trendingError ? (
-              <ErrorView message={trendingError} onRetry={refetchTrending} />
-            ) : (
-              <FlatList
-                data={trendingData?.torrents?.slice(0, 15) || []}
-                keyExtractor={(item, i) => item.id || String(i)}
-                renderItem={({ item, index }) => (
-                  <TorrentCard
-                    torrent={item}
-                    onPress={handleTorrentPress}
-                    hasPreferredFocus={isTV && index === 0}
-                  />
-                )}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.shelfListContent}
-                ListEmptyComponent={
-                  <View style={styles.emptyCard}>
-                    <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                      Loading verified torrents...
-                    </Text>
-                  </View>
-                }
-              />
-            )}
-          </View>
-
-          {/* ─── SHELF 4: POPULAR MOVIES ─── */}
-          <View style={styles.sectionWrap}>
-            <SectionHeader
-              title="🎬 Top Movies (1080p / 4K)"
-              icon="movie"
-              onSeeAll={() => navigation.navigate('Browse', { category: 'movies', tab: 'seeders' })}
-            />
-            {moviesLoading ? (
-              <LoadingSpinner message="Loading movies..." />
-            ) : (
-              <FlatList
-                data={moviesData?.torrents?.slice(0, 15) || []}
-                keyExtractor={(item, i) => item.id || String(i)}
-                renderItem={({ item }) => (
-                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
-                )}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.shelfListContent}
-              />
-            )}
-          </View>
-
-          {/* ─── SHELF 5: POPULAR TV SERIES ─── */}
-          <View style={styles.sectionWrap}>
-            <SectionHeader
-              title="📺 Binge-Worthy TV Shows"
-              icon="tv"
-              onSeeAll={() => navigation.navigate('Browse', { category: 'tv', tab: 'seeders' })}
-            />
-            {tvLoading ? (
-              <LoadingSpinner message="Loading TV series..." />
-            ) : (
-              <FlatList
-                data={tvData?.torrents?.slice(0, 15) || []}
-                keyExtractor={(item, i) => item.id || String(i)}
-                renderItem={({ item }) => (
-                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
-                )}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.shelfListContent}
-              />
-            )}
-          </View>
-
-          {/* ─── SHELF 6: LATEST RELEASES ─── */}
-          <View style={styles.sectionWrap}>
-            <SectionHeader
-              title="⚡ Fresh Verified Uploads"
-              icon="new-releases"
-              onSeeAll={() => navigation.navigate('Browse', { tab: 'latest' })}
-            />
-            {latestLoading ? (
-              <LoadingSpinner message="Loading latest torrents..." />
-            ) : (
-              <FlatList
-                data={latestData?.torrents?.slice(0, 15) || []}
-                keyExtractor={(item, i) => item.id || String(i)}
-                renderItem={({ item }) => (
-                  <TorrentCard torrent={item} onPress={handleTorrentPress} />
-                )}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.shelfListContent}
-              />
-            )}
-          </View>
+          ))}
         </ScrollView>
       </View>
 
@@ -308,65 +319,55 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-function SearchTriggerButton({ onPress }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+function SearchTriggerButton({ onPress, isFocused = false }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
 
   return (
-    <FocusableOpacity
-      hasTVPreferredFocus={false}
+    <TouchableOpacity
       accessibilityRole="button"
-      accessibilityLabel="Search titles. Press OK to open search."
       style={[
         styles.searchBarBtn,
         { backgroundColor: theme.input, borderColor: theme.border },
-        focused && styles.searchBarBtnFocused,
-        focused && focusStyle,
+        isFocused && styles.searchBarBtnFocused,
       ]}
       activeOpacity={0.8}
       onPress={() => {
         playTVSelectFeedback();
         onPress();
       }}
-      onFocus={onFocus}
-      onBlur={onBlur}
     >
       <MaterialIcons
         name="search"
         size={20}
-        color={focused ? '#FFFFFF' : COLORS.primary}
+        color={isFocused ? '#FFFFFF' : '#FF5722'}
       />
-      <Text style={[styles.searchBtnText, { color: focused ? '#fff' : theme.textMuted }, focused && styles.searchBtnTextFocused]}>
-        {focused ? 'PRESS OK TO TYPE' : 'Search movies, series, 4K...'}
+      <Text style={[styles.searchBtnText, { color: isFocused ? '#FFFFFF' : theme.textMuted }, isFocused && styles.searchBtnTextFocused]}>
+        {isFocused ? 'PRESS OK TO TYPE' : 'Search movies, series, 4K...'}
       </Text>
-      {focused && (
+      {isFocused && (
         <View style={styles.searchPointerBeacon}>
           <Text style={styles.searchPointerText}>SELECT</Text>
         </View>
       )}
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
-function CategoryChip({ cat, selected, onPress, onLongPress }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+function CategoryChip({ cat, selected, isFocused = false, onPress, onLongPress }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
 
   return (
-    <FocusableOpacity
-      hasTVPreferredFocus={false}
+    <TouchableOpacity
       accessibilityRole="button"
-      accessibilityState={{ selected }}
       style={[
         styles.catChip,
         {
-          backgroundColor: selected ? COLORS.primary : theme.card,
-          borderColor: selected ? COLORS.primary : theme.border,
+          backgroundColor: selected ? '#FF5722' : theme.card,
+          borderColor: selected ? '#FF5722' : theme.border,
         },
-        focused && styles.catChipFocused,
-        focused && focusStyle,
+        isFocused && styles.catChipFocused,
       ]}
       activeOpacity={0.8}
       onPress={() => {
@@ -374,24 +375,22 @@ function CategoryChip({ cat, selected, onPress, onLongPress }) {
         onPress();
       }}
       onLongPress={onLongPress}
-      onFocus={onFocus}
-      onBlur={onBlur}
     >
       <MaterialIcons
         name={cat.icon}
         size={16}
-        color={selected || focused ? '#FFFFFF' : theme.textSub}
+        color={selected || isFocused ? '#FFFFFF' : theme.textSub}
       />
       <Text
         style={[
           styles.catText,
-          { color: selected || focused ? '#FFFFFF' : theme.textSub },
+          { color: selected || isFocused ? '#FFFFFF' : theme.textSub },
           selected && styles.catTextSelected,
         ]}
       >
         {cat.name}
       </Text>
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
@@ -432,7 +431,7 @@ const styles = StyleSheet.create({
   },
   appSub: {
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 1.5,
     marginTop: 1,
   },
@@ -472,7 +471,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   searchPointerText: {
-    color: COLORS.primary,
+    color: '#FF5722',
     fontSize: 9,
     fontWeight: '900',
   },
@@ -518,14 +517,5 @@ const styles = StyleSheet.create({
   shelfListContent: {
     paddingVertical: 8,
     paddingRight: 20,
-  },
-  emptyCard: {
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

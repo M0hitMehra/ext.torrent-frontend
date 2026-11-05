@@ -28,11 +28,12 @@ import { fetchMediaMetadata } from '../api/metaApi';
 
 const isTV = Platform.isTV;
 
-export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false, isFocused = false }) {
+  const [internalFocused, setInternalFocused] = useState(false);
+  const focused = isFocused || internalFocused;
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
-  const focusColor = settings.focusColor || COLORS.primary;
+  const focusColor = (settings.focusColor && settings.focusColor !== '#FFFFFF') ? settings.focusColor : '#FF5722';
 
   const [metadata, setMetadata] = useState(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -64,11 +65,11 @@ export function TorrentCard({ torrent, onPress, style, hasPreferredFocus = false
     <FocusableOpacity
       activeOpacity={0.88}
       onPress={handlePress}
-      onFocus={(e) => {
+      onFocus={() => {
+        setInternalFocused(true);
         playTVSelectFeedback();
-        onFocus(e);
       }}
-      onBlur={onBlur}
+      onBlur={() => setInternalFocused(false)}
       hasTVPreferredFocus={hasPreferredFocus}
       style={[
         styles.cardContainer,

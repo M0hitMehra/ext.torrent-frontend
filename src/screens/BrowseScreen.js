@@ -1,50 +1,68 @@
 /**
  * BrowseScreen.js
- * High-contrast Neumorphic category and tab browser (Browse / Trending / Latest).
- * Fully integrated with YouTube TV style left-side navigation rail and remote focus states.
+ * Netflix-style Category Explorer with Segmented Controls and TV Remote Support.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, Platform, ScrollView,
+  View, Text, FlatList, StyleSheet, Platform, ScrollView, TouchableOpacity,
 } from 'react-native';
-import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS, CATEGORIES, SORT_OPTIONS } from '../constants';
-import { browseTorrents, getTrending, getLatest } from '../api/torrentApi';
+import { COLORS, CATEGORIES } from '../constants';
+import { browseTorrents, getLatest, getTrending } from '../api/torrentApi';
 import { TorrentCard } from '../components/TorrentCard';
-import { TVNavigationRail } from '../components/TVNavigationRail';
+import { TVNavigationRail, NAV_ITEMS } from '../components/TVNavigationRail';
 import { LoadingSpinner, ErrorView, EmptyView } from '../components/Common';
-import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { playTVFocusFeedback, playTVSelectFeedback, useTVRemote } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
-const TABS = ['Browse', 'Trending', 'Latest'];
+const TABS = ['Trending', 'Browse', 'Latest'];
+const SORT_OPTIONS = [
+  { label: '🔥 Top Seeders', value: 'seeders', order: 'desc' },
+  { label: '⚡ Newest First', value: 'time', order: 'desc' },
+  { label: '📦 Largest Size', value: 'size', order: 'desc' },
+];
 
-export default function BrowseScreen({ navigation, route }) {
+export default function BrowseScreen({ route, navigation }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
-  const initCategory = route.params?.category || 'all';
-  const initTab = route.params?.tab === 'trending' ? 1 : route.params?.tab === 'latest' ? 2 : 0;
 
-  const [category, setCategory] = useState(initCategory);
-  const [tab, setTab] = useState(initTab);
+  const initialCat = route.params?.category || 'all';
+  const initialTab = route.params?.tab === 'latest' ? 2 : route.params?.tab === 'trending' ? 0 : 1;
+
+  const [tab, setTab] = useState(initialTab);
+  const [category, setCategory] = useState(initialCat);
   const [sort, setSort] = useState(SORT_OPTIONS[0]);
+
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const fetchData = useCallback(async (t = tab, cat = category, p = 1, s = sort, append = false) => {
+  // TV Remote Navigation State
+  // area: 'RAIL' | 'TABS' | 'CATEGORIES' | 'GRID'
+  const [tvFocus, setTvFocus] = useState({
+    area: 'GRID',
+    railIndex: 2, // Browse
+    tabIndex: initialTab,
+    catIndex: 0,
+    cardIndex: 0,
+  });
+
+  const fetchData = useCallback(async (currentTab, currentCat, p, currentSort, append = false) => {
     setLoading(true);
     setError(null);
     try {
       let res;
-      if (t === 0) res = await browseTorrents({ category: cat, page: p, sort: s.value, order: s.order });
-      else if (t === 1) res = await getTrending(cat);
-      else res = await getLatest(p);
-
+      if (currentTab === 0) {
+        res = await getTrending(currentCat, p);
+      } else if (currentTab === 2) {
+        res = await getLatest(p);
+      } else {
+        res = await browseTorrents({ category: currentCat, page: p, sort: currentSort.value, order: currentSort.order });
+      }
       const items = res.torrents || [];
       if (append) setData(prev => [...prev, ...items]);
       else setData(items);
@@ -55,7 +73,7 @@ export default function BrowseScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  }, [tab, category, sort]);
+  }, []);
 
   useEffect(() => {
     fetchData(tab, category, 1, sort, false);
@@ -67,32 +85,136 @@ export default function BrowseScreen({ navigation, route }) {
     }
   };
 
+  const numCols = isTV ? 4 : 2;
+
+  // TV Remote Key Handler
+  useTVRemote((eventType) => {
+    if (tvFocus.area === 'RAIL') {
+      if (eventType === 'up') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, railIndex: Math.max(0, f.railIndex - 1) }));
+      } else if (eventType === 'down') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, railIndex: Math.min(NAV_ITEMS.length - 1, f.railIndex + 1) }));
+      } else if (eventType === 'right') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'GRID' }));
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        const routeName = NAV_ITEMS[tvFocus.railIndex]?.id;
+        if (routeName && routeName !== 'Browse') {
+          navigation.navigate(routeName);
+        }
+      }
+    } else if (tvFocus.area === 'TABS') {
+      if (eventType === 'left') {
+        if (tvFocus.tabIndex > 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, tabIndex: f.tabIndex - 1 }));
+        } else {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 2 }));
+        }
+      } else if (eventType === 'right') {
+        if (tvFocus.tabIndex < TABS.length - 1) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, tabIndex: f.tabIndex + 1 }));
+        }
+      } else if (eventType === 'down') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'CATEGORIES' }));
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        setTab(tvFocus.tabIndex);
+        setData([]);
+        setPage(1);
+      }
+    } else if (tvFocus.area === 'CATEGORIES') {
+      if (eventType === 'left') {
+        if (tvFocus.catIndex > 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, catIndex: f.catIndex - 1 }));
+        } else {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 2 }));
+        }
+      } else if (eventType === 'right') {
+        if (tvFocus.catIndex < CATEGORIES.length - 1) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, catIndex: f.catIndex + 1 }));
+        }
+      } else if (eventType === 'up') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'TABS' }));
+      } else if (eventType === 'down') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'GRID', cardIndex: 0 }));
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        setCategory(CATEGORIES[tvFocus.catIndex].slug);
+        setData([]);
+        setPage(1);
+      }
+    } else if (tvFocus.area === 'GRID') {
+      if (eventType === 'left') {
+        if (tvFocus.cardIndex % numCols === 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 2 }));
+        } else if (tvFocus.cardIndex > 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, cardIndex: f.cardIndex - 1 }));
+        }
+      } else if (eventType === 'right') {
+        if (tvFocus.cardIndex < data.length - 1) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, cardIndex: f.cardIndex + 1 }));
+        }
+      } else if (eventType === 'up') {
+        if (tvFocus.cardIndex >= numCols) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, cardIndex: f.cardIndex - numCols }));
+        } else {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'CATEGORIES' }));
+        }
+      } else if (eventType === 'down') {
+        if (tvFocus.cardIndex + numCols < data.length) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, cardIndex: f.cardIndex + numCols }));
+        }
+      } else if (eventType === 'select') {
+        const item = data[tvFocus.cardIndex];
+        if (item) {
+          playTVSelectFeedback();
+          navigation.navigate('TorrentDetail', { torrent: item });
+        }
+      }
+    }
+  });
+
   return (
     <View style={[styles.outerContainer, { backgroundColor: theme.bg }]}>
       {/* ─── YOUTUBE TV LEFT NAVIGATION RAIL ─── */}
       <TVNavigationRail
         currentRoute="Browse"
+        focusedItem={tvFocus.area === 'RAIL' ? NAV_ITEMS[tvFocus.railIndex]?.id : null}
         onNavigate={(target) => navigation.navigate(target)}
       />
 
       <View style={[styles.mainContent, { backgroundColor: theme.bg }]}>
         {/* Header */}
         <View style={[styles.header, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          {!isTV && (
-            <FocusableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <MaterialIcons name="arrow-back" size={22} color={COLORS.text} />
-            </FocusableOpacity>
-          )}
           <Text style={[styles.headerTitle, { color: theme.text }]}>Explore Torrents</Text>
         </View>
 
-        {/* Neumorphic Segmented Tab Switcher */}
+        {/* Segmented Tab Switcher */}
         <View style={[styles.tabContainer, { backgroundColor: theme.input, borderColor: theme.border }]}>
           {TABS.map((t, i) => (
             <TabSegmentBtn
               key={t}
               label={t}
               isActive={tab === i}
+              isFocused={tvFocus.area === 'TABS' && tvFocus.tabIndex === i}
               onPress={() => { setTab(i); setData([]); setPage(1); }}
             />
           ))}
@@ -100,18 +222,19 @@ export default function BrowseScreen({ navigation, route }) {
 
         {/* Category Horizontal Scroll */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catRow}>
-          {CATEGORIES.map((cat) => (
+          {CATEGORIES.map((cat, idx) => (
             <BrowseCatChip
               key={cat.slug}
               cat={cat}
               isSelected={category === cat.slug}
+              isFocused={tvFocus.area === 'CATEGORIES' && tvFocus.catIndex === idx}
               onPress={() => { setCategory(cat.slug); setData([]); setPage(1); }}
             />
           ))}
         </ScrollView>
 
         {/* Sort Options (Browse tab only) */}
-        {tab === 0 && (
+        {tab === 1 && (
           <View style={[styles.sortRow, { backgroundColor: theme.bg }]}>
             {SORT_OPTIONS.map((opt) => (
               <BrowseSortChip
@@ -134,14 +257,14 @@ export default function BrowseScreen({ navigation, route }) {
         ) : (
           <FlatList
             key={isTV ? 'b-tv' : 'b-mob'}
-            numColumns={isTV ? 4 : 2}
+            numColumns={numCols}
             data={data}
             keyExtractor={(item, i) => item.id || String(i)}
             renderItem={({ item, index }) => (
               <TorrentCard
                 torrent={item}
                 onPress={(t) => navigation.navigate('TorrentDetail', { torrent: t })}
-                hasPreferredFocus={index === 0 && isTV}
+                isFocused={tvFocus.area === 'GRID' && tvFocus.cardIndex === index}
                 style={{ flex: 1, maxWidth: isTV ? '25%' : '50%', marginBottom: 14 }}
               />
             )}
@@ -157,110 +280,84 @@ export default function BrowseScreen({ navigation, route }) {
   );
 }
 
-function TabSegmentBtn({ label, isActive, onPress }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+function TabSegmentBtn({ label, isActive, isFocused, onPress }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
 
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       style={[
         styles.tabBtn,
-        { backgroundColor: isActive ? theme.card : 'transparent' },
-        isActive && styles.tabBtnActive,
-        focused && styles.tabBtnFocused,
-        { backgroundColor: focused ? undefined : isActive ? theme.card : 'transparent' },
-        focused && focusStyle,
+        { backgroundColor: isActive ? '#FF5722' : 'transparent' },
+        isFocused && styles.tabBtnFocused,
       ]}
       onPress={() => {
         playTVSelectFeedback();
         onPress();
       }}
-      onFocus={onFocus}
-      onBlur={onBlur}
       activeOpacity={0.8}
     >
       <Text
         style={[
           styles.tabText,
-          isActive && styles.tabTextActive,
-          focused && styles.tabTextFocused,
-          { color: focused ? '#fff' : isActive ? COLORS.primary : theme.textMuted },
+          { color: (isActive || isFocused) ? '#FFFFFF' : theme.textMuted },
+          (isActive || isFocused) && { fontWeight: '900' },
         ]}
       >
         {label}
       </Text>
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
-function BrowseCatChip({ cat, isSelected, onPress }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+function BrowseCatChip({ cat, isSelected, isFocused, onPress }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
 
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       style={[
         styles.catChip,
-        { backgroundColor: isSelected ? COLORS.primary : theme.card, borderColor: isSelected ? COLORS.primary : theme.border },
-        isSelected && styles.catChipSelected,
-        focused && styles.catChipFocused,
-        focused && focusStyle,
+        { backgroundColor: isSelected ? '#FF5722' : theme.card, borderColor: isSelected ? '#FF5722' : theme.border },
+        isFocused && styles.catChipFocused,
       ]}
       onPress={() => {
         playTVSelectFeedback();
         onPress();
       }}
-      onFocus={onFocus}
-      onBlur={onBlur}
     >
       <Text
         style={[
           styles.catText,
-          { color: isSelected || focused ? '#fff' : theme.textSub },
-          isSelected && styles.catTextSelected,
-          focused && styles.catTextFocused,
+          { color: (isSelected || isFocused) ? '#FFFFFF' : theme.textSub },
+          (isSelected || isFocused) && { fontWeight: '900' },
         ]}
       >
-        {cat.label}
+        {cat.name}
       </Text>
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
 function BrowseSortChip({ opt, isActive, onPress }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
 
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       style={[
         styles.sortChip,
-        { backgroundColor: isActive ? COLORS.primary : theme.card, borderColor: theme.border },
-        isActive && styles.sortChipActive,
-        focused && styles.sortChipFocused,
-        focused && focusStyle,
+        { backgroundColor: isActive ? '#FF5722' : theme.card, borderColor: theme.border },
       ]}
       onPress={() => {
         playTVSelectFeedback();
         onPress();
       }}
-      onFocus={onFocus}
-      onBlur={onBlur}
     >
-      <Text
-        style={[
-          styles.sortText,
-          { color: isActive || focused ? '#fff' : theme.textSub },
-          isActive && styles.sortTextActive,
-          focused && styles.sortTextFocused,
-        ]}
-      >
+      <Text style={[styles.sortText, { color: isActive ? '#FFFFFF' : theme.textSub }]}>
         {opt.label}
       </Text>
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
@@ -268,63 +365,33 @@ const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: COLORS.bg,
   },
   mainContent: {
     flex: 1,
-    backgroundColor: COLORS.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 44 : 16,
     paddingBottom: 14,
-    backgroundColor: COLORS.surface,
     borderBottomWidth: 1.5,
-    borderColor: COLORS.cardHighlight,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: COLORS.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderTopColor: COLORS.cardHighlight,
-    borderLeftColor: COLORS.cardHighlight,
-    borderBottomColor: COLORS.cardShadow,
-    borderRightColor: COLORS.cardShadow,
-  },
-  headerTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
+  headerTitle: { fontSize: 18, fontWeight: '800' },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.input,
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 14,
     padding: 4,
     borderWidth: 1,
-    borderTopColor: COLORS.cardShadow,
-    borderLeftColor: COLORS.cardShadow,
-    borderBottomColor: COLORS.cardHighlight,
-    borderRightColor: COLORS.cardHighlight,
   },
   tabBtn: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 12,
-  },
-  tabBtnActive: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderTopColor: COLORS.cardHighlight,
-    borderLeftColor: COLORS.cardHighlight,
-    borderBottomColor: COLORS.cardShadow,
-    borderRightColor: COLORS.cardShadow,
   },
   tabBtnFocused: {
     borderColor: '#FFFFFF',
@@ -335,30 +402,15 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     backgroundColor: '#FF5722',
     transform: [{ scale: 1.05 }],
-    shadowColor: '#FF5722',
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 8,
   },
-  tabText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '700' },
-  tabTextActive: { color: COLORS.primaryGlow },
-  tabTextFocused: { color: '#FFFFFF', fontWeight: '900' },
+  tabText: { fontSize: 13, fontWeight: '700' },
   catRow: { paddingHorizontal: 16, paddingVertical: 12 },
   catChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: COLORS.card,
     marginRight: 8,
     borderWidth: 1,
-    borderTopColor: COLORS.cardHighlight,
-    borderLeftColor: COLORS.cardHighlight,
-    borderBottomColor: COLORS.cardShadow,
-    borderRightColor: COLORS.cardShadow,
-  },
-  catChipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
   },
   catChipFocused: {
     borderColor: '#FFFFFF',
@@ -369,14 +421,8 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     backgroundColor: '#FF5722',
     transform: [{ scale: 1.1 }],
-    shadowColor: '#FF5722',
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 8,
   },
-  catText: { color: COLORS.textSub, fontSize: 12, fontWeight: '700' },
-  catTextSelected: { color: '#fff' },
-  catTextFocused: { color: '#FFFFFF', fontWeight: '900' },
+  catText: { fontSize: 12, fontWeight: '700' },
   sortRow: {
     flexDirection: 'row',
     gap: 8,
@@ -387,33 +433,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderTopColor: COLORS.cardHighlight,
-    borderLeftColor: COLORS.cardHighlight,
-    borderBottomColor: COLORS.cardShadow,
-    borderRightColor: COLORS.cardShadow,
   },
-  sortChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  sortChipFocused: {
-    borderColor: '#FFFFFF',
-    borderTopColor: '#FFFFFF',
-    borderBottomColor: '#FFFFFF',
-    borderLeftColor: '#FFFFFF',
-    borderRightColor: '#FFFFFF',
-    borderWidth: 3,
-    backgroundColor: '#FF5722',
-    transform: [{ scale: 1.08 }],
-    shadowColor: '#FF5722',
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  sortText: { color: COLORS.textSub, fontSize: 11, fontWeight: '700' },
-  sortTextActive: { color: '#fff' },
-  sortTextFocused: { color: '#FFFFFF', fontWeight: '900' },
+  sortText: { fontSize: 11, fontWeight: '700' },
   listContent: { padding: 16, paddingBottom: 60 },
 });

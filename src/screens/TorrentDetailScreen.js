@@ -22,24 +22,29 @@ import { getTorrentDetail } from '../api/torrentApi';
 import { fetchMediaMetadata } from '../api/metaApi';
 import { PlayerSelectorModal } from '../components/PlayerSelectorModal';
 import { LoadingSpinner, ErrorView } from '../components/Common';
-import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { useTVFocus, playTVFocusFeedback, playTVSelectFeedback, useTVRemote } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
 
-function DetailWatchlistButton({ inWatchlist, onPress, theme }) {
-  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
+function DetailWatchlistButton({ inWatchlist, isFocused, onPress, theme }) {
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       accessibilityRole="button"
       accessibilityLabel={inWatchlist ? "Remove from watchlist" : "Add to watchlist"}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
-      onFocus={onFocus}
-      onBlur={onBlur}
       style={[
         styles.actionSecondaryBtn,
         { backgroundColor: inWatchlist ? 'rgba(245, 158, 11, 0.15)' : theme.card, borderColor: inWatchlist ? '#F59E0B' : theme.border },
-        focused && focusStyle,
+        isFocused && {
+          borderColor: '#FFFFFF',
+          borderWidth: 3.5,
+          transform: [{ scale: 1.05 }],
+          elevation: 16,
+          shadowColor: '#F59E0B',
+          shadowOpacity: 1,
+          shadowRadius: 16,
+        },
       ]}
     >
       <MaterialIcons
@@ -50,7 +55,7 @@ function DetailWatchlistButton({ inWatchlist, onPress, theme }) {
       <Text style={[styles.actionSecondaryText, { color: inWatchlist ? "#F59E0B" : theme.text }]}>
         {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
       </Text>
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
@@ -160,6 +165,32 @@ export default function TorrentDetailScreen({ navigation, route }) {
     }
   }, [metadata]);
 
+  // TV Remote Focus state
+  const [detailFocus, setDetailFocus] = useState(0); // 0 = Stream, 1 = Watchlist, 2 = Copy
+
+  useTVRemote((eventType) => {
+    if (playerModalVisible) return;
+
+    if (eventType === 'up') {
+      if (detailFocus > 0) {
+        playTVFocusFeedback();
+        setDetailFocus(f => f - 1);
+      }
+    } else if (eventType === 'down') {
+      if (detailFocus < 2) {
+        playTVFocusFeedback();
+        setDetailFocus(f => f + 1);
+      }
+    } else if (eventType === 'select') {
+      playTVSelectFeedback();
+      if (detailFocus === 0) handleOpenPlayerModal();
+      else if (detailFocus === 1) handleToggleWatchlist();
+      else if (detailFocus === 2) handleCopyMagnet();
+    } else if (eventType === 'back') {
+      navigation.goBack();
+    }
+  }, !playerModalVisible);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Top Navigation Bar */}
@@ -256,13 +287,13 @@ export default function TorrentDetailScreen({ navigation, route }) {
         {/* ─── ACTION BUTTONS (Neumorphic Extruded with TV Pointer) ─── */}
         <View style={styles.actionSection}>
           {/* Main Primary Stream Button */}
-          <DetailStreamMainButton onPress={handleOpenPlayerModal} />
+          <DetailStreamMainButton isFocused={detailFocus === 0} onPress={handleOpenPlayerModal} />
 
           {/* Watchlist Bookmark Toggle Button */}
-          <DetailWatchlistButton inWatchlist={inWatchlist} onPress={handleToggleWatchlist} theme={theme} />
+          <DetailWatchlistButton isFocused={detailFocus === 1} inWatchlist={inWatchlist} onPress={handleToggleWatchlist} theme={theme} />
 
           {/* Copy Magnet Button with Live Feedback */}
-          <DetailCopyMagnetButton copied={copied} onPress={handleCopyMagnet} />
+          <DetailCopyMagnetButton isFocused={detailFocus === 2} copied={copied} onPress={handleCopyMagnet} />
         </View>
 
         {/* ─── CAST & CHARACTERS ─── */}
@@ -731,47 +762,58 @@ function DetailTrailerButton({ onPress }) {
   );
 }
 
-function DetailStreamMainButton({ onPress }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+function DetailStreamMainButton({ isFocused, onPress }) {
   return (
-    <FocusableOpacity
-      style={[styles.btnPrimaryStream, focused && styles.btnPrimaryStreamFocused, focused && focusStyle]}
+    <TouchableOpacity
+      style={[
+        styles.btnPrimaryStream,
+        isFocused && {
+          borderColor: '#FFFFFF',
+          borderWidth: 3.5,
+          transform: [{ scale: 1.05 }],
+          elevation: 20,
+          shadowColor: '#FF5722',
+          shadowOpacity: 1,
+          shadowRadius: 18,
+        },
+      ]}
       activeOpacity={0.85}
-      hasTVPreferredFocus={isTV}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
-      onFocus={onFocus}
-      onBlur={onBlur}
     >
       <MaterialIcons name="play-arrow" size={30} color="#fff" />
       <View>
         <Text style={styles.btnPrimaryTitle}>STREAM VIDEO</Text>
         <Text style={styles.btnPrimarySub}>Choose WebTor, TorrServer, or VLC</Text>
       </View>
-      {focused ? (
+      {isFocused ? (
         <View style={styles.streamPointerPill}>
           <Text style={styles.streamPointerPillText}>PRESS OK</Text>
         </View>
       ) : (
         <MaterialIcons name="chevron-right" size={24} color="#fff" style={{ marginLeft: 'auto' }} />
       )}
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
-function DetailCopyMagnetButton({ copied, onPress }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+function DetailCopyMagnetButton({ copied, isFocused, onPress }) {
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       style={[
         styles.btnCopyMagnet,
         copied && styles.btnCopiedActive,
-        focused && styles.btnCopyMagnetFocused,
-        focused && focusStyle,
+        isFocused && {
+          borderColor: '#FFFFFF',
+          borderWidth: 3.5,
+          transform: [{ scale: 1.05 }],
+          elevation: 16,
+          shadowColor: '#FF5722',
+          shadowOpacity: 1,
+          shadowRadius: 16,
+        },
       ]}
       activeOpacity={0.8}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
-      onFocus={onFocus}
-      onBlur={onBlur}
     >
       <MaterialIcons
         name={copied ? 'check-circle' : 'content-copy'}
@@ -781,7 +823,7 @@ function DetailCopyMagnetButton({ copied, onPress }) {
       <Text style={[styles.btnCopyText, copied && { color: COLORS.seeder }]}>
         {copied ? 'Magnet Link Copied to Clipboard!' : 'Copy Magnet Link'}
       </Text>
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 

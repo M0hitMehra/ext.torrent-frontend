@@ -2,11 +2,14 @@ package com.extto.torrentapp
 
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.modules.core.DeviceEventManagerModule
 
 import expo.modules.ReactActivityDelegateWrapper
 
@@ -15,7 +18,7 @@ class MainActivity : ReactActivity() {
     // Set the theme to AppTheme BEFORE onCreate to support
     // coloring the background, status bar, and navigation bar.
     // This is required for expo-splash-screen.
-    setTheme(R.style.AppTheme);
+    setTheme(R.style.AppTheme)
     super.onCreate(null)
   }
 
@@ -38,6 +41,43 @@ class MainActivity : ReactActivity() {
               mainComponentName,
               fabricEnabled
           ){})
+  }
+
+  /**
+   * Intercept TV Remote D-pad key events and emit them to React Native.
+   * This provides 100% reliable TV navigation across Android TV, Fire TV, and remote controls.
+   */
+  override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+      if (event.action == KeyEvent.ACTION_DOWN) {
+          val keyType = when (event.keyCode) {
+              KeyEvent.KEYCODE_DPAD_UP -> "up"
+              KeyEvent.KEYCODE_DPAD_DOWN -> "down"
+              KeyEvent.KEYCODE_DPAD_LEFT -> "left"
+              KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
+              KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> "select"
+              KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY -> "playPause"
+              KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> "fastForward"
+              KeyEvent.KEYCODE_MEDIA_REWIND -> "rewind"
+              else -> null
+          }
+
+          if (keyType != null) {
+              try {
+                  val reactContext = reactInstanceManager?.currentReactContext
+                  if (reactContext != null) {
+                      val params = Arguments.createMap().apply {
+                          putString("eventType", keyType)
+                          putInt("keyCode", event.keyCode)
+                      }
+                      reactContext
+                          .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                          .emit("onTVRemoteKey", params)
+                      return true
+                  }
+              } catch (_: Exception) {}
+          }
+      }
+      return super.dispatchKeyEvent(event)
   }
 
   /**

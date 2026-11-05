@@ -12,7 +12,7 @@ import {
 import { FocusableOpacity } from './FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
-import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { useTVFocus, playTVFocusFeedback, playTVSelectFeedback, useTVRemote } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
@@ -20,6 +20,7 @@ const isTV = Platform.isTV;
 export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelectInApp }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
+  const [modalFocus, setModalFocus] = React.useState(0);
   if (!torrent || !magnet) return null;
 
   const handleWebTorInApp = () => {
@@ -68,6 +69,34 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
     }
   };
 
+  const modalActions = [
+    handleWebTorInApp,
+    handleOpenVLC,
+    handleOpenWebTorBrowser,
+    handleOpenSystemDefault,
+  ];
+
+  useTVRemote((eventType) => {
+    if (!visible) return;
+
+    if (eventType === 'up') {
+      if (modalFocus > 0) {
+        playTVFocusFeedback();
+        setModalFocus(f => f - 1);
+      }
+    } else if (eventType === 'down') {
+      if (modalFocus < modalActions.length - 1) {
+        playTVFocusFeedback();
+        setModalFocus(f => f + 1);
+      }
+    } else if (eventType === 'select') {
+      playTVSelectFeedback();
+      modalActions[modalFocus]?.();
+    } else if (eventType === 'back') {
+      onClose();
+    }
+  }, visible);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
@@ -99,7 +128,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               description="Loads this magnet directly in the embedded Webtor player."
               onPress={handleWebTorInApp}
               recommended
-              isFirst
+              isFocused={modalFocus === 0}
             />
 
             {/* 2. VLC Player */}
@@ -110,6 +139,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               title="VLC for Android"
               description="Opens in official VLC with hardware acceleration and subtitle support."
               onPress={handleOpenVLC}
+              isFocused={modalFocus === 1}
             />
 
             {/* 3. Browser WebTor */}
@@ -119,6 +149,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               title="Open WebTor in Browser"
               description="Launches external Chrome/browser with magnet auto-loaded."
               onPress={handleOpenWebTorBrowser}
+              isFocused={modalFocus === 2}
             />
 
             {/* 4. System Intent */}
@@ -128,6 +159,7 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
               title="Other Installed Media Player"
               description="Pass magnet to MX Player, Just Player, or system default."
               onPress={handleOpenSystemDefault}
+              isFocused={modalFocus === 3}
             />
           </View>
         </View>
@@ -136,24 +168,29 @@ export function PlayerSelectorModal({ visible, onClose, torrent, magnet, onSelec
   );
 }
 
-function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress, recommended, isFirst }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress, recommended, isFocused }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
 
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       activeOpacity={0.8}
-      hasTVPreferredFocus={isFirst && isTV}
       style={[
         styles.tile,
         recommended && styles.tileRecommended,
-        focused && styles.tileFocused,
-        focused && focusStyle,
-        { backgroundColor: theme.card, borderTopColor: theme.cardHighlight, borderLeftColor: theme.cardHighlight, borderBottomColor: theme.cardShadow, borderRightColor: theme.cardShadow },
+        { backgroundColor: theme.card, borderColor: theme.border },
+        isFocused && {
+          borderColor: '#FFFFFF',
+          borderWidth: 3.5,
+          transform: [{ scale: 1.05 }],
+          elevation: 16,
+          shadowColor: '#FF5722',
+          shadowOpacity: 1,
+          shadowRadius: 16,
+        },
       ]}
       onPress={onPress}
-      onFocus={onFocus}
+    >
       onBlur={onBlur}
     >
       <View style={[styles.tileIconCircle, { backgroundColor: iconColor + '20' }]}>
@@ -182,7 +219,7 @@ function PlayerOptionTile({ icon, iconColor, badge, title, description, onPress,
           <Text style={styles.tileBeaconText}>SELECT</Text>
         </View>
       )}
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 

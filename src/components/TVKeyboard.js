@@ -2,6 +2,7 @@
  * TVKeyboard.js
  * High-contrast on-screen keyboard for TV remote control.
  * Styled after YouTube TV with audio-haptic feedback, autofocus, and luminous key states.
+ * Fully navigable via TV Remote D-Pad (Up, Down, Left, Right, Select, Back).
  */
 
 import React, { useState, useCallback } from 'react';
@@ -11,7 +12,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
-import { playTVFocusFeedback, playTVSelectFeedback } from '../hooks';
+import { playTVFocusFeedback, playTVSelectFeedback, useTVRemote } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
@@ -24,8 +25,7 @@ const TV_KEYBOARD_ROWS = [
   ['SPACE', 'CLEAR', 'SEARCH'],
 ];
 
-function TVKey({ label, onPress, isFirst }) {
-  const [focused, setFocused] = useState(false);
+function TVKey({ label, onPress, isFocused }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
   const isWide = ['SPACE','CLEAR','SEARCH'].includes(label);
@@ -39,16 +39,7 @@ function TVKey({ label, onPress, isFirst }) {
 
   return (
     <TouchableOpacity
-      hasTVPreferredFocus={isFirst}
-      focusable
       activeOpacity={0.8}
-      onFocus={() => {
-        setFocused(true);
-        playTVFocusFeedback();
-      }}
-      onBlur={() => {
-        setFocused(false);
-      }}
       onPress={handlePress}
       style={[
         styles.key,
@@ -62,7 +53,7 @@ function TVKey({ label, onPress, isFirst }) {
         },
         isWide && styles.keyWide,
         isSearch && styles.keySearch,
-        focused && {
+        isFocused && {
           backgroundColor: accentColor,
           borderColor: '#FFFFFF',
           borderTopColor: '#FFFFFF',
@@ -83,8 +74,8 @@ function TVKey({ label, onPress, isFirst }) {
       <Text
         style={[
           styles.keyText,
-          { color: (focused || isSearch) ? '#FFFFFF' : theme.text },
-          focused && { fontWeight: '900', color: '#FFFFFF' },
+          { color: (isFocused || isSearch) ? '#FFFFFF' : theme.text },
+          isFocused && { fontWeight: '900', color: '#FFFFFF' },
         ]}
       >
         {label === 'SPACE' ? '⎵ Space' : label === '⌫' ? '⌫ Back' : label.toUpperCase()}
@@ -96,8 +87,9 @@ function TVKey({ label, onPress, isFirst }) {
 export function TVKeyboard({ visible, onClose, onSearch }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
-  const [closeFocused, setCloseFocused] = useState(false);
   const [text, setText] = useState('');
+  const [focusedRow, setFocusedRow] = useState(1); // default on 'a'
+  const [focusedCol, setFocusedCol] = useState(0);
   const accentColor = (settings.focusColor && settings.focusColor !== '#FFFFFF') ? settings.focusColor : '#FF5722';
 
   const handleKey = useCallback((key) => {
@@ -118,6 +110,37 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
     }
   }, [text, onSearch, onClose]);
 
+  // Handle hardware TV remote keys inside the keyboard
+  useTVRemote((eventType) => {
+    if (!visible) return;
+
+    if (eventType === 'up') {
+      playTVFocusFeedback();
+      setFocusedRow(r => Math.max(0, r - 1));
+    } else if (eventType === 'down') {
+      playTVFocusFeedback();
+      setFocusedRow(r => {
+        const nextR = Math.min(TV_KEYBOARD_ROWS.length - 1, r + 1);
+        const maxCols = TV_KEYBOARD_ROWS[nextR].length - 1;
+        setFocusedCol(c => Math.min(c, maxCols));
+        return nextR;
+      });
+    } else if (eventType === 'left') {
+      playTVFocusFeedback();
+      setFocusedCol(c => Math.max(0, c - 1));
+    } else if (eventType === 'right') {
+      playTVFocusFeedback();
+      const maxCols = TV_KEYBOARD_ROWS[focusedRow].length - 1;
+      setFocusedCol(c => Math.min(maxCols, c + 1));
+    } else if (eventType === 'select') {
+      playTVSelectFeedback();
+      const key = TV_KEYBOARD_ROWS[focusedRow]?.[focusedCol];
+      if (key) handleKey(key);
+    } else if (eventType === 'back') {
+      onClose();
+    }
+  }, visible);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={[styles.overlay, settings.mode === 'light' && { backgroundColor: 'rgba(34,47,68,0.28)' }]}>
@@ -130,34 +153,17 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
                 {text || 'Type with TV Remote D-Pad...'}
               </Text>
               {text.length > 0 && (
-                <KeyboardClearButton onPress={() => setText('')} theme={theme} accentColor={accentColor}>
+                <TouchableOpacity onPress={() => setText('')} style={styles.clearMiniBtn}>
                   <MaterialIcons name="close" size={18} color="#FFFFFF" />
-                </KeyboardClearButton>
+                </TouchableOpacity>
               )}
             </View>
 
             <TouchableOpacity
-              focusable
-              onFocus={() => {
-                setCloseFocused(true);
-                playTVFocusFeedback();
-              }}
-              onBlur={() => {
-                setCloseFocused(false);
-              }}
               onPress={onClose}
               style={[
                 styles.closeBtn,
                 { backgroundColor: theme.card, borderColor: 'rgba(255,255,255,0.1)' },
-                closeFocused && {
-                  backgroundColor: accentColor,
-                  borderColor: '#FFFFFF',
-                  borderWidth: 3.5,
-                  transform: [{ scale: 1.15 }],
-                  elevation: 20,
-                  shadowColor: accentColor,
-                  shadowRadius: 18,
-                },
               ]}
             >
               <MaterialIcons name="close" size={24} color="#FFFFFF" />
@@ -172,7 +178,7 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
                   <TVKey
                     key={key}
                     label={key}
-                    isFirst={ri === 0 && ki === 0}
+                    isFocused={ri === focusedRow && ki === focusedCol}
                     onPress={handleKey}
                   />
                 ))}
@@ -183,38 +189,6 @@ export function TVKeyboard({ visible, onClose, onSearch }) {
         </View>
       </View>
     </Modal>
-  );
-}
-
-function KeyboardClearButton({ onPress, children, theme, accentColor }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <TouchableOpacity
-      focusable
-      onFocus={() => {
-        setFocused(true);
-        playTVFocusFeedback();
-      }}
-      onBlur={() => {
-        setFocused(false);
-      }}
-      onPress={() => {
-        playTVSelectFeedback();
-        onPress();
-      }}
-      style={[
-        styles.clearMiniBtn,
-        { backgroundColor: theme.card },
-        focused && {
-          backgroundColor: accentColor,
-          borderColor: '#FFFFFF',
-          borderWidth: 2,
-          borderRadius: 6,
-        },
-      ]}
-    >
-      {children}
-    </TouchableOpacity>
   );
 }
 

@@ -4,6 +4,8 @@ import { getTheme, useAppSettings } from '../utils/settings';
 
 const { NativeClipboard } = NativeModules;
 
+export * from './useTVRemote';
+
 export function playTVFocusFeedback() {
   try {
     NativeClipboard?.playFocusSound?.();

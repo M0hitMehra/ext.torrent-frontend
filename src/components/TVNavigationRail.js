@@ -1,9 +1,7 @@
 /**
  * TVNavigationRail.js
  * YouTube TV style left-side navigation rail for Android TV.
- * Allows quick D-pad remote switching between Home, Search, Browse, and Settings,
- * complete with ultra-high-contrast TV Remote focus states, glowing indicator badges,
- * and audio-haptic feedback.
+ * Supports programmatic state-driven TV remote focus as well as native D-pad focus.
  */
 
 import React, { useState } from 'react';
@@ -13,14 +11,14 @@ import { COLORS } from '../constants';
 import { playTVFocusFeedback, playTVSelectFeedback } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { id: 'Search',   icon: 'search',   label: 'Search' },
   { id: 'Home',     icon: 'home',     label: 'Home' },
   { id: 'Browse',   icon: 'explore',  label: 'Browse' },
   { id: 'Settings', icon: 'settings', label: 'Settings' },
 ];
 
-export function TVNavigationRail({ currentRoute, onNavigate }) {
+export function TVNavigationRail({ currentRoute, onNavigate, focusedItem = null }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
   if (!Platform.isTV) return null;
@@ -39,6 +37,7 @@ export function TVNavigationRail({ currentRoute, onNavigate }) {
             key={item.id}
             item={item}
             isActive={currentRoute === item.id}
+            isFocused={focusedItem === item.id}
             onPress={() => {
               playTVSelectFeedback();
               onNavigate(item.id);
@@ -56,8 +55,9 @@ export function TVNavigationRail({ currentRoute, onNavigate }) {
   );
 }
 
-function RailButton({ item, isActive, onPress }) {
-  const [focused, setFocused] = useState(false);
+function RailButton({ item, isActive, isFocused, onPress }) {
+  const [internalFocused, setInternalFocused] = useState(false);
+  const focused = isFocused || internalFocused;
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
   const accentColor = (settings.focusColor && settings.focusColor !== '#FFFFFF') ? settings.focusColor : '#FF5722';
@@ -67,11 +67,11 @@ function RailButton({ item, isActive, onPress }) {
       activeOpacity={0.85}
       focusable
       onFocus={() => {
-        setFocused(true);
+        setInternalFocused(true);
         playTVFocusFeedback();
       }}
       onBlur={() => {
-        setFocused(false);
+        setInternalFocused(false);
       }}
       onPress={onPress}
       style={[

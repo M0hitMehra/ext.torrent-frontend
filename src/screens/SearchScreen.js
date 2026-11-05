@@ -16,10 +16,10 @@ import { COLORS, SORT_OPTIONS } from '../constants';
 import { searchTorrents } from '../api/torrentApi';
 import { TorrentCard } from '../components/TorrentCard';
 import { TVKeyboard } from '../components/TVKeyboard';
-import { TVNavigationRail } from '../components/TVNavigationRail';
+import { TVNavigationRail, NAV_ITEMS } from '../components/TVNavigationRail';
 import { LoadingSpinner, ErrorView, EmptyView } from '../components/Common';
 import { getSearchHistory, addSearchQuery, removeSearchQuery, clearSearchHistory } from '../utils/history';
-import { useTVFocus, playTVSelectFeedback } from '../hooks';
+import { useTVFocus, playTVFocusFeedback, playTVSelectFeedback, useTVRemote } from '../hooks';
 import { useFocusEffect } from '@react-navigation/native';
 import { getTheme, useAppSettings } from '../utils/settings';
 
@@ -33,6 +33,14 @@ export default function SearchScreen({ navigation, route }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // TV Remote Navigation State
+  // area: 'RAIL' | 'INPUT' | 'RESULTS'
+  const [tvFocus, setTvFocus] = useState({
+    area: 'INPUT',
+    railIndex: 0, // Search
+    cardIndex: 0,
+  });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [sort, setSort] = useState(SORT_OPTIONS[0]);
@@ -109,11 +117,84 @@ export default function SearchScreen({ navigation, route }) {
     navigation.navigate('TorrentDetail', { torrent });
   }, [navigation]);
 
+  const numCols = isTV ? 4 : 2;
+
+  useTVRemote((eventType) => {
+    if (keyboardVisible) return;
+
+    if (tvFocus.area === 'RAIL') {
+      if (eventType === 'up') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, railIndex: Math.max(0, f.railIndex - 1) }));
+      } else if (eventType === 'down') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, railIndex: Math.min(NAV_ITEMS.length - 1, f.railIndex + 1) }));
+      } else if (eventType === 'right') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'INPUT' }));
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        const routeName = NAV_ITEMS[tvFocus.railIndex]?.id;
+        if (routeName && routeName !== 'Search') {
+          navigation.navigate(routeName);
+        }
+      }
+    } else if (tvFocus.area === 'INPUT') {
+      if (eventType === 'left') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 0 }));
+      } else if (eventType === 'down') {
+        if (results.length > 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'RESULTS', cardIndex: 0 }));
+        }
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        setKeyboardVisible(true);
+      }
+    } else if (tvFocus.area === 'RESULTS') {
+      if (eventType === 'left') {
+        if (tvFocus.cardIndex % numCols === 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 0 }));
+        } else if (tvFocus.cardIndex > 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, cardIndex: f.cardIndex - 1 }));
+        }
+      } else if (eventType === 'right') {
+        if (tvFocus.cardIndex < results.length - 1) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, cardIndex: f.cardIndex + 1 }));
+        }
+      } else if (eventType === 'up') {
+        if (tvFocus.cardIndex >= numCols) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, cardIndex: f.cardIndex - numCols }));
+        } else {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, area: 'INPUT' }));
+        }
+      } else if (eventType === 'down') {
+        if (tvFocus.cardIndex + numCols < results.length) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, cardIndex: f.cardIndex + numCols }));
+        }
+      } else if (eventType === 'select') {
+        const item = results[tvFocus.cardIndex];
+        if (item) {
+          playTVSelectFeedback();
+          handleTorrentPress(item);
+        }
+      }
+    }
+  }, !keyboardVisible);
+
   return (
     <View style={[styles.outerContainer, { backgroundColor: theme.bg }]}>
       {/* ─── YOUTUBE TV LEFT NAVIGATION RAIL ─── */}
       <TVNavigationRail
         currentRoute="Search"
+        focusedItem={tvFocus.area === 'RAIL' ? NAV_ITEMS[tvFocus.railIndex]?.id : null}
         onNavigate={(target) => navigation.navigate(target)}
       />
 
@@ -129,6 +210,7 @@ export default function SearchScreen({ navigation, route }) {
           {isTV ? (
             <TVSearchInput
               query={query}
+              isFocused={tvFocus.area === 'INPUT'}
               onPress={() => setKeyboardVisible(true)}
             />
           ) : (
@@ -219,7 +301,7 @@ export default function SearchScreen({ navigation, route }) {
               <TorrentCard
                 torrent={item}
                 onPress={handleTorrentPress}
-                hasPreferredFocus={index === 0 && isTV}
+                isFocused={tvFocus.area === 'RESULTS' && tvFocus.cardIndex === index}
                 style={{ flex: 1, maxWidth: isTV ? '25%' : '50%', marginBottom: 14 }}
               />
             )}
@@ -247,39 +329,39 @@ export default function SearchScreen({ navigation, route }) {
   );
 }
 
-function TVSearchInput({ query, onPress }) {
-  const { focused, onFocus, onBlur, focusStyle } = useTVFocus();
+function TVSearchInput({ query, isFocused = false, onPress }) {
   const { settings } = useAppSettings();
   const theme = getTheme(settings.mode);
 
   return (
-    <FocusableOpacity
-      hasTVPreferredFocus={isTV}
+    <TouchableOpacity
       accessibilityRole="button"
       accessibilityLabel={query ? `Search query ${query}. Press OK to edit.` : 'Search titles. Press OK to open the TV keyboard.'}
-      style={[styles.tvInput, { backgroundColor: theme.input, borderColor: theme.border }, focused && styles.tvInputFocused, focused && focusStyle]}
+      style={[
+        styles.tvInput,
+        { backgroundColor: theme.input, borderColor: theme.border },
+        isFocused && styles.tvInputFocused,
+      ]}
       onPress={() => {
         playTVSelectFeedback();
         onPress();
       }}
-      onFocus={onFocus}
-      onBlur={onBlur}
       activeOpacity={0.8}
     >
       <MaterialIcons
         name="search"
         size={22}
-        color={focused ? '#FFFFFF' : COLORS.primaryGlow}
+        color={isFocused ? '#FFFFFF' : '#FF5722'}
       />
-      <Text style={[styles.tvInputText, { color: query ? theme.text : theme.textMuted }, query && styles.tvInputTextFilled, focused && styles.tvInputTextFocused]}>
+      <Text style={[styles.tvInputText, { color: query ? theme.text : theme.textMuted }, query && styles.tvInputTextFilled, isFocused && styles.tvInputTextFocused]}>
         {query || 'Press OK to type with TV Remote...'}
       </Text>
-      {focused && (
+      {isFocused && (
         <View style={styles.tvInputBeacon}>
           <Text style={styles.tvInputBeaconText}>KEYBOARD</Text>
         </View>
       )}
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, Alert } from 'react-native';
-import { FocusableOpacity } from '../components/FocusableOpacity';
+import { View, Text, StyleSheet, ScrollView, Platform, Alert, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants';
 import { useAppSettings, getTheme, FOCUS_COLORS } from '../utils/settings';
-import { useTVFocus, playTVSelectFeedback } from '../hooks';
-import { TVNavigationRail } from '../components/TVNavigationRail';
+import { playTVFocusFeedback, playTVSelectFeedback, useTVRemote } from '../hooks';
+import { TVNavigationRail, NAV_ITEMS } from '../components/TVNavigationRail';
 import {
   getStorageSummary,
   clearSearchHistory,
@@ -21,6 +20,14 @@ export default function SettingsScreen({ navigation }) {
   const theme = getTheme(settings.mode);
   const [summary, setSummary] = useState({ searchCount: 0, watchCount: 0, watchlistCount: 0, totalItems: 0 });
   const [feedback, setFeedback] = useState(null);
+
+  // TV Remote Navigation State
+  // area: 'RAIL' | 'CONTENT'
+  const [tvFocus, setTvFocus] = useState({
+    area: 'CONTENT',
+    railIndex: 3, // Settings
+    actionIndex: 0,
+  });
 
   const refreshSummary = async () => {
     try {
@@ -92,16 +99,63 @@ export default function SettingsScreen({ navigation }) {
     ]
   );
 
+  const actions = [
+    () => confirmClearSearches(),
+    () => confirmClearWatchHistory(),
+    () => confirmClearWatchlist(),
+    () => confirmClearAll(),
+    () => updateSettings({ mode: 'dark' }),
+    () => updateSettings({ mode: 'light' }),
+  ];
+
+  useTVRemote((eventType) => {
+    if (tvFocus.area === 'RAIL') {
+      if (eventType === 'up') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, railIndex: Math.max(0, f.railIndex - 1) }));
+      } else if (eventType === 'down') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, railIndex: Math.min(NAV_ITEMS.length - 1, f.railIndex + 1) }));
+      } else if (eventType === 'right') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'CONTENT' }));
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        const routeName = NAV_ITEMS[tvFocus.railIndex]?.id;
+        if (routeName && routeName !== 'Settings') {
+          navigation.navigate(routeName);
+        }
+      }
+    } else if (tvFocus.area === 'CONTENT') {
+      if (eventType === 'left') {
+        playTVFocusFeedback();
+        setTvFocus(f => ({ ...f, area: 'RAIL', railIndex: 3 }));
+      } else if (eventType === 'up') {
+        if (tvFocus.actionIndex > 0) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, actionIndex: f.actionIndex - 1 }));
+        }
+      } else if (eventType === 'down') {
+        if (tvFocus.actionIndex < actions.length - 1) {
+          playTVFocusFeedback();
+          setTvFocus(f => ({ ...f, actionIndex: f.actionIndex + 1 }));
+        }
+      } else if (eventType === 'select') {
+        playTVSelectFeedback();
+        actions[tvFocus.actionIndex]?.();
+      }
+    }
+  });
+
   return (
     <View style={[styles.outer, { backgroundColor: theme.bg }]}>
-      <TVNavigationRail currentRoute="Settings" onNavigate={(route) => navigation.navigate(route)} />
+      <TVNavigationRail
+        currentRoute="Settings"
+        focusedItem={tvFocus.area === 'RAIL' ? NAV_ITEMS[tvFocus.railIndex]?.id : null}
+        onNavigate={(route) => navigation.navigate(route)}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={[styles.header, { borderBottomColor: theme.border }]}>
-          {!isTV && (
-            <FocusableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-              <MaterialIcons name="arrow-back" size={22} color={theme.text} />
-            </FocusableOpacity>
-          )}
           <View style={styles.headingGroup}>
             <Text style={[styles.title, { color: theme.text }]}>Settings & Local Storage</Text>
             <Text style={[styles.subtitle, { color: theme.textMuted }]}>
@@ -120,7 +174,7 @@ export default function SettingsScreen({ navigation }) {
         {/* Section 1: Stored Data Management */}
         <View style={[styles.panel, { backgroundColor: theme.card, borderColor: theme.border, shadowColor: theme.cardShadow }]}>
           <View style={styles.sectionHeading}>
-            <MaterialIcons name="sd-storage" size={20} color={COLORS.primary} />
+            <MaterialIcons name="sd-storage" size={20} color="#FF5722" />
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Stored Data on this Device</Text>
           </View>
           <Text style={[styles.description, { color: theme.textSub }]}>
@@ -130,7 +184,7 @@ export default function SettingsScreen({ navigation }) {
           {/* Metrics summary chips */}
           <View style={styles.summaryChipsRow}>
             <View style={[styles.summaryChip, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-              <MaterialIcons name="search" size={16} color={COLORS.primary} />
+              <MaterialIcons name="search" size={16} color="#FF5722" />
               <Text style={[styles.summaryChipCount, { color: theme.text }]}>{summary.searchCount}</Text>
               <Text style={[styles.summaryChipLabel, { color: theme.textMuted }]}>Searches</Text>
             </View>
@@ -155,6 +209,7 @@ export default function SettingsScreen({ navigation }) {
               label="Clear Search History"
               subtitle={`${summary.searchCount} items saved`}
               disabled={summary.searchCount === 0}
+              isFocused={tvFocus.area === 'CONTENT' && tvFocus.actionIndex === 0}
               onPress={confirmClearSearches}
               theme={theme}
             />
@@ -163,6 +218,7 @@ export default function SettingsScreen({ navigation }) {
               label="Clear Watch History"
               subtitle={`${summary.watchCount} streamed titles`}
               disabled={summary.watchCount === 0}
+              isFocused={tvFocus.area === 'CONTENT' && tvFocus.actionIndex === 1}
               onPress={confirmClearWatchHistory}
               theme={theme}
             />
@@ -171,19 +227,24 @@ export default function SettingsScreen({ navigation }) {
               label="Clear My Watchlist"
               subtitle={`${summary.watchlistCount} bookmarked items`}
               disabled={summary.watchlistCount === 0}
+              isFocused={tvFocus.area === 'CONTENT' && tvFocus.actionIndex === 2}
               onPress={confirmClearWatchlist}
               theme={theme}
             />
           </View>
 
           {/* Master Clear All Data Button */}
-          <ClearAllDataButton onPress={confirmClearAll} theme={theme} />
+          <ClearAllDataButton
+            isFocused={tvFocus.area === 'CONTENT' && tvFocus.actionIndex === 3}
+            onPress={confirmClearAll}
+            theme={theme}
+          />
         </View>
 
         {/* Section 2: Appearance & Theme */}
         <View style={[styles.panel, { backgroundColor: theme.card, borderColor: theme.border, shadowColor: theme.cardShadow }]}>
           <View style={styles.sectionHeading}>
-            <MaterialIcons name="palette" size={20} color={COLORS.primary} />
+            <MaterialIcons name="palette" size={20} color="#FF5722" />
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Appearance</Text>
           </View>
           <Text style={[styles.description, { color: theme.textSub }]}>
@@ -194,199 +255,165 @@ export default function SettingsScreen({ navigation }) {
               label="Dark cinema"
               icon="dark-mode"
               selected={settings.mode === 'dark'}
+              isFocused={tvFocus.area === 'CONTENT' && tvFocus.actionIndex === 4}
               onPress={() => updateSettings({ mode: 'dark' })}
               theme={theme}
             />
             <SettingsOption
-              label="Light glass"
+              label="Light frost"
               icon="light-mode"
               selected={settings.mode === 'light'}
-              onPress={() => updateSettings({ mode: 'light', focusColor: settings.focusColor === '#FFFFFF' ? '#E85B43' : settings.focusColor })}
+              isFocused={tvFocus.area === 'CONTENT' && tvFocus.actionIndex === 5}
+              onPress={() => updateSettings({ mode: 'light' })}
               theme={theme}
             />
           </View>
         </View>
-
-        {/* Section 3: Remote Highlight Color */}
-        <View style={[styles.panel, { backgroundColor: theme.card, borderColor: theme.border, shadowColor: theme.cardShadow }]}>
-          <View style={styles.sectionHeading}>
-            <MaterialIcons name="center-focus-strong" size={20} color={COLORS.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Remote Highlight Color</Text>
-          </View>
-          <Text style={[styles.description, { color: theme.textSub }]}>
-            Outlines focused tiles across search, keyboard, catalog and player choices.
-          </Text>
-          <View style={styles.swatches}>
-            {FOCUS_COLORS.filter(color => settings.mode !== 'light' || color.value !== '#FFFFFF').map(color => (
-              <ColorSwatch
-                key={color.value}
-                item={color}
-                selected={settings.focusColor === color.value}
-                onPress={() => updateSettings({ focusColor: color.value })}
-              />
-            ))}
-          </View>
-          <Text style={[styles.selectedColor, { color: theme.textMuted }]}>
-            Current: {FOCUS_COLORS.find(c => c.value === settings.focusColor)?.name || 'Custom'}
-          </Text>
-        </View>
-
-        <Text style={[styles.footer, { color: theme.textMuted }]}>
-          ExtTorrent · All data is stored locally on this device
-        </Text>
       </ScrollView>
     </View>
   );
 }
 
-function DataActionRow({ icon, label, subtitle, disabled, onPress, theme }) {
-  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
+function DataActionRow({ icon, label, subtitle, disabled, isFocused, onPress, theme }) {
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       accessibilityRole="button"
-      disabled={disabled}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
-      onFocus={onFocus}
-      onBlur={onBlur}
       style={[
         styles.actionRowBtn,
         { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
         disabled && { opacity: 0.4 },
-        focused && focusStyle,
+        isFocused && styles.focusedRow,
       ]}
     >
-      <MaterialIcons name={icon} size={20} color={COLORS.primary} />
+      <MaterialIcons name={icon} size={20} color="#FF5722" />
       <View style={{ flex: 1, marginLeft: 10 }}>
         <Text style={[styles.actionRowTitle, { color: theme.text }]}>{label}</Text>
         <Text style={[styles.actionRowSub, { color: theme.textMuted }]}>{subtitle}</Text>
       </View>
       <MaterialIcons name="delete-outline" size={18} color="#D94848" />
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
-function ClearAllDataButton({ onPress, theme }) {
-  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
+function ClearAllDataButton({ onPress, isFocused, theme }) {
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       accessibilityRole="button"
       onPress={() => { playTVSelectFeedback(); onPress(); }}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      style={[styles.clearButton, { borderColor: '#D9484860', backgroundColor: '#D9484815' }, focused && focusStyle]}
+      style={[
+        styles.clearButton,
+        { borderColor: '#D9484860', backgroundColor: '#D9484815' },
+        isFocused && styles.focusedRow,
+      ]}
     >
       <MaterialIcons name="delete-forever" size={22} color="#D94848" />
       <Text style={styles.clearText}>CLEAR ALL DATA (MASTER RESET)</Text>
       <MaterialIcons name="chevron-right" size={20} color="#D94848" />
-    </FocusableOpacity>
+    </TouchableOpacity>
   );
 }
 
-function SettingsOption({ label, icon, selected, onPress, theme }) {
-  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
+function SettingsOption({ label, icon, selected, isFocused, onPress, theme }) {
   return (
-    <FocusableOpacity
+    <TouchableOpacity
       accessibilityRole="button"
-      accessibilityState={{ selected }}
-      hasTVPreferredFocus={isTV && selected}
       onPress={() => { playTVSelectFeedback(); onPress(); }}
-      onFocus={onFocus}
-      onBlur={onBlur}
       style={[
         styles.modeOption,
-        { backgroundColor: selected ? `${COLORS.primary}20` : theme.surfaceElevated, borderColor: selected ? COLORS.primary : theme.border },
-        focused && focusStyle,
+        { backgroundColor: selected ? 'rgba(255, 87, 34, 0.2)' : theme.surfaceElevated, borderColor: selected ? '#FF5722' : theme.border },
+        isFocused && styles.focusedRow,
       ]}
     >
-      <MaterialIcons name={icon} size={22} color={selected ? COLORS.primary : theme.textSub} />
+      <MaterialIcons name={icon} size={22} color={selected ? '#FF5722' : theme.textSub} />
       <Text style={[styles.optionLabel, { color: theme.text }]}>{label}</Text>
-      {selected && <MaterialIcons name="check-circle" size={18} color={COLORS.primary} />}
-    </FocusableOpacity>
-  );
-}
-
-function ColorSwatch({ item, selected, onPress }) {
-  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
-  return (
-    <FocusableOpacity
-      accessibilityRole="button"
-      accessibilityLabel={`${item.name} remote highlight`}
-      accessibilityState={{ selected }}
-      onPress={() => { playTVSelectFeedback(); onPress(); }}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      style={[styles.swatchButton, selected && styles.swatchSelected, focused && focusStyle]}
-    >
-      <View style={[styles.swatch, { backgroundColor: item.value }]} />
-      <Text style={styles.swatchLabel}>{item.name}</Text>
-    </FocusableOpacity>
+      {selected && <MaterialIcons name="check-circle" size={18} color="#FF5722" />}
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   outer: { flex: 1, flexDirection: 'row' },
   scroll: { flex: 1 },
-  content: { flexGrow: 1, padding: isTV ? 30 : 18, paddingBottom: 44, maxWidth: 1000, width: '100%' },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingBottom: 14, borderBottomWidth: 1 },
-  back: { padding: 8, marginRight: 12 },
-  headingGroup: { flex: 1 },
+  content: { padding: isTV ? 28 : 16, paddingBottom: 60 },
+  header: { paddingBottom: 16, marginBottom: 20, borderBottomWidth: 1 },
+  headingGroup: { gap: 4 },
   title: { fontSize: 22, fontWeight: '800' },
-  subtitle: { fontSize: 13, marginTop: 2 },
+  subtitle: { fontSize: 13 },
   feedbackBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 12,
-    backgroundColor: 'rgba(21, 150, 106, 0.15)',
+    backgroundColor: '#10B98120',
+    borderColor: '#10B98160',
     borderWidth: 1,
-    borderColor: 'rgba(21, 150, 106, 0.4)',
-    borderRadius: 10,
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 16,
   },
-  feedbackText: { color: '#15966A', fontWeight: '700', fontSize: 13 },
-  panel: { padding: 18, borderRadius: 14, borderWidth: 1, marginBottom: 18, elevation: 3 },
+  feedbackText: { color: '#10B981', fontWeight: '700', fontSize: 13 },
+  panel: {
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   sectionTitle: { fontSize: 16, fontWeight: '800' },
-  description: { fontSize: 13, lineHeight: 18, marginBottom: 14 },
+  description: { fontSize: 12, marginBottom: 14, lineHeight: 18 },
   summaryChipsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   summaryChip: {
     flex: 1,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 3,
   },
-  summaryChipCount: { fontSize: 16, fontWeight: '900', marginTop: 2 },
-  summaryChipLabel: { fontSize: 10, fontWeight: '700', marginTop: 1 },
+  summaryChipCount: { fontSize: 16, fontWeight: '800' },
+  summaryChipLabel: { fontSize: 10, fontWeight: '600' },
   granularButtonsCol: { gap: 8, marginBottom: 14 },
   actionRowBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 10,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
   },
   actionRowTitle: { fontSize: 13, fontWeight: '700' },
-  actionRowSub: { fontSize: 11, marginTop: 1 },
-  optionRow: { flexDirection: 'row', gap: 12 },
-  modeOption: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1.5 },
-  optionLabel: { flex: 1, fontSize: 14, fontWeight: '700' },
-  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  swatchButton: { alignItems: 'center', padding: 8, borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent' },
-  swatchSelected: { borderColor: COLORS.primary },
-  swatch: { width: 32, height: 32, borderRadius: 16, marginBottom: 4 },
-  swatchLabel: { fontSize: 11, fontWeight: '600', color: '#AAB0C5' },
-  selectedColor: { fontSize: 12, marginTop: 10 },
+  actionRowSub: { fontSize: 10, marginTop: 2 },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    padding: 14,
-    borderRadius: 12,
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
     borderWidth: 1.5,
   },
-  clearText: { color: '#D94848', fontSize: 13, fontWeight: '800' },
-  footer: { textAlign: 'center', fontSize: 12, marginTop: 12 },
+  clearText: { color: '#D94848', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+  optionRow: { flexDirection: 'row', gap: 12 },
+  modeOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  optionLabel: { fontSize: 13, fontWeight: '700', flex: 1 },
+  focusedRow: {
+    borderColor: '#FFFFFF',
+    borderTopColor: '#FFFFFF',
+    borderBottomColor: '#FFFFFF',
+    borderLeftColor: '#FFFFFF',
+    borderRightColor: '#FFFFFF',
+    borderWidth: 3.5,
+    transform: [{ scale: 1.05 }],
+    elevation: 16,
+    shadowColor: '#FF5722',
+    shadowOpacity: 1,
+    shadowRadius: 16,
+  },
 });
