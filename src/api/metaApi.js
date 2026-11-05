@@ -1,115 +1,213 @@
 /**
  * metaApi.js
- * Fetches movie/show posters, IMDb ratings, genres, and trailers
- * using free open metadata APIs (Cinemeta / TVMaze) with zero API keys required.
- * Gracefully returns null if not available so the UI can hide elements.
+ * Enriches torrent items with high-definition posters, backdrops,
+ * Director, Cast (with photos & character roles), Synopsis, Ratings,
+ * and "More Like This" Recommendations.
+ * Integrates backend /api/meta with client-side PopcornTV TMDB and Cinemeta fallbacks.
  */
-
 import axios from 'axios';
+import { API_BASE_URL } from '../constants';
 
 const metaCache = new Map();
 
 /**
- * Cleans release title (strips codec, resolution, group tags, brackets)
+ * Intelligently cleans raw torrent titles
  */
-export function cleanMediaTitle(raw) {
-  if (!raw) return '';
-  let s = raw;
-  // Remove brackets and parentheses
-  s = s.replace(/\[[^\]]*\]/g, ' ').replace(/\([^\)]*\)/g, ' ');
-  // Remove technical tags
-  s = s.replace(/\b(2160p|1080p|720p|480p|4k|uhd|bluray|bdrip|brrip|web-dl|webrip|web|hdtv|h264|x264|h265|hevc|x265|dvdrip|aac5?\.?1?|ddp5?\.?1?|ac3|yify|proper|repack|complete|remux|multi|dual|audio|extended|imax)\b/gi, ' ');
-  // Remove season/episode identifiers
-  s = s.replace(/\b(s\d{1,2}e\d{1,2}|s\d{1,2}|season\s*\d+|episode\s*\d+)\b/gi, ' ');
-  // Replace dots, underscores, dashes with spaces
-  s = s.replace(/[._\-]/g, ' ');
-  // Remove year if at the end
-  s = s.replace(/\b(19\d\d|20\d\d)\b/g, ' ');
-  return s.trim().replace(/\s+/g, ' ');
+export function cleanMediaTitle(rawTitle) {
+  if (!rawTitle) return { title: '', year: null };
+
+  let title = String(rawTitle);
+
+  // Strip domain names and site branding prefixes
+  title = title
+    .replace(/(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+\.(?:org|com|net|to|mx|lt|ws|is|cz|cc|re|tv|me|info|io|top|site|xyz|online|app|dev|biz|mobi|ru|in|gg|bz)\b/gi, ' ')
+    .replace(/\bwww\s+[a-zA-Z0-9-]+\s+(?:org|com|net|to|mx|lt|ws|is|cz|cc|re|tv|me|info|io|top|site|xyz|online)\b/gi, ' ')
+    .replace(/\b(?:uindex|1337x|galaxyrg|eztv|rarbg|ettv|rartv|yts|yify|fitgirl|dodi|psa|tgx|vostfr|multi|glodls)\b/gi, ' ');
+
+  // Extract 4-digit release year
+  const yearMatch = title.match(/\b(19[2-9]\d|20[0-3]\d)\b/);
+  const year = yearMatch ? yearMatch[1] : null;
+
+  // Remove bracketed / parenthetical release tags
+  title = title.replace(/\[.*?\]|\(.*?\)/g, ' ');
+
+  // Cut off at standard media tags
+  const cutOffPatterns = [
+    /\b(s\d{1,2}\s*-\s*s\d{1,2}|s\d{1,2}e\d{1,2}|s\d{1,2}|season\s*\d{1,2})\b/i,
+    /\b(1080p|720p|2160p|4k|8k|uhd|fhd|bluray|blu-ray|bdrip|webrip|web-dl|webdl|hdrip|dvdrip|hdtv|cam)\b/i,
+  ];
+  for (const p of cutOffPatterns) {
+    const m = title.match(p);
+    if (m && m.index > 2) {
+      title = title.slice(0, m.index);
+    }
+  }
+
+  // Remove codecs
+  title = title
+    .replace(/\b(x264|x265|h264|h265|hevc|avc|10bit|remux|repack|proper|unrated|extended|dts|truehd|atmos|ac3|aac|mp3|flac|dual|multi|subs?)\b/gi, ' ')
+    .replace(/[\._\-\+:]/g, ' ')
+    .replace(/[\(\)\[\]\{\}]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!title || title.length < 2) {
+    title = rawTitle.replace(/\[.*?\]|\(.*?\)/g, '').replace(/[\._\-]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  return { title, year };
 }
 
 /**
- * Fetches poster and metadata for a given torrent title.
- * Returns { poster, backdrop, name, year, rating, genres, description, trailerUrl } or null
+ * Primary Rich Metadata resolver:
+ * Director, Cast with photos, Synopsis, Ratings, Recommendations, Trailers.
  */
-export async function fetchMediaMetadata(rawTitle) {
+export async function fetchMediaMetadata(rawTitle, preferredYear = null) {
   if (!rawTitle) return null;
-  const cleaned = cleanMediaTitle(rawTitle);
-  if (!cleaned || cleaned.length < 2) return null;
 
-  const cacheKey = cleaned.toLowerCase();
+  const { title, year: parsedYear } = cleanMediaTitle(rawTitle);
+  const year = preferredYear || parsedYear;
+  if (!title || title.length < 2) return null;
+
+  const cacheKey = `rich_${title.toLowerCase()}_${year || ''}`;
   if (metaCache.has(cacheKey)) {
     return metaCache.get(cacheKey);
   }
 
+  // 1. Try backend /api/meta gateway
   try {
-    // 1. Try Cinemeta Movie
-    const movieUrl = `https://v3-cinemeta.strem.io/catalog/movie/top/search=${encodeURIComponent(cleaned)}.json`;
-    const movieRes = await axios.get(movieUrl, { timeout: 3500 });
-    const movie = movieRes.data?.metas?.[0];
-
-    if (movie && movie.poster) {
-      const data = {
-        name: movie.name || cleaned,
-        poster: movie.poster,
-        backdrop: movie.background || null,
-        year: movie.releaseInfo || movie.year || null,
-        rating: movie.imdbRating || null,
-        genres: movie.genres || [],
-        description: movie.description || null,
-        trailerUrl: movie.trailerInfo?.ytId
-          ? `https://www.youtube.com/watch?v=${movie.trailerInfo.ytId}`
-          : null,
-      };
+    const backendRes = await axios.get(`${API_BASE_URL}/api/meta`, {
+      params: { q: title, year },
+      timeout: 4500,
+    });
+    if (backendRes.data?.success && backendRes.data?.data) {
+      const data = backendRes.data.data;
       metaCache.set(cacheKey, data);
       return data;
     }
+  } catch (_) {}
 
-    // 2. Try Cinemeta Series
-    const seriesUrl = `https://v3-cinemeta.strem.io/catalog/series/top/search=${encodeURIComponent(cleaned)}.json`;
-    const seriesRes = await axios.get(seriesUrl, { timeout: 3500 });
-    const series = seriesRes.data?.metas?.[0];
+  // 2. Direct client fallback to PopcornTV TMDB Gateway
+  try {
+    const tmdbSearch = await axios.get(
+      `https://popcorntv.site/api/tmdb/search/multi?query=${encodeURIComponent(title)}`,
+      { timeout: 5000 }
+    );
+    const results = tmdbSearch.data?.results || [];
+    if (results.length > 0) {
+      const item = results.find(r => {
+        if (year) {
+          const itemYear = (r.release_date || r.first_air_date || '').slice(0, 4);
+          return itemYear === String(year);
+        }
+        return true;
+      }) || results[0];
 
-    if (series && series.poster) {
-      const data = {
-        name: series.name || cleaned,
-        poster: series.poster,
-        backdrop: series.background || null,
-        year: series.releaseInfo || series.year || null,
-        rating: series.imdbRating || null,
-        genres: series.genres || [],
-        description: series.description || null,
-        trailerUrl: series.trailerInfo?.ytId
-          ? `https://www.youtube.com/watch?v=${series.trailerInfo.ytId}`
-          : null,
+      const mediaType = item.media_type === 'tv' ? 'tv' : 'movie';
+      const tmdbDetail = await axios.get(
+        `https://popcorntv.site/api/tmdb/${mediaType}/${item.id}?append_to_response=credits,similar,videos`,
+        { timeout: 5000 }
+      );
+      const d = tmdbDetail.data;
+
+      const directors = (d.credits?.crew || [])
+        .filter(c => c.job === 'Director')
+        .map(c => c.name);
+      const creators = (d.created_by || []).map(c => c.name);
+      const director = directors.length > 0 ? directors.join(', ') : (creators.length > 0 ? creators.join(', ') : null);
+
+      const cast = (d.credits?.cast || []).slice(0, 10).map(c => ({
+        name: c.name,
+        character: c.character || 'Cast',
+        photo: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+      }));
+
+      const recommendations = (d.similar?.results || []).slice(0, 8).map(r => ({
+        id: r.id,
+        title: r.title || r.name,
+        year: (r.release_date || r.first_air_date || '').slice(0, 4),
+        poster: r.poster_path ? `https://image.tmdb.org/t/p/w342${r.poster_path}` : null,
+        rating: r.vote_average ? Number(r.vote_average.toFixed(1)) : null,
+        type: mediaType,
+      }));
+
+      let trailerUrl = null;
+      const yt = (d.videos?.results || []).find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
+      if (yt?.key) {
+        trailerUrl = `https://www.youtube.com/watch?v=${yt.key}`;
+      }
+
+      let runtime = null;
+      if (d.runtime) {
+        const hrs = Math.floor(d.runtime / 60);
+        const mins = d.runtime % 60;
+        runtime = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+      } else if (d.episode_run_time?.length) {
+        runtime = `${d.episode_run_time[0]}m / ep`;
+      }
+
+      const richData = {
+        id: d.id,
+        title: d.title || d.name || title,
+        name: d.title || d.name || title,
+        tagline: d.tagline || null,
+        overview: d.overview || '',
+        description: d.overview || '',
+        releaseDate: d.release_date || d.first_air_date || null,
+        year: (d.release_date || d.first_air_date || '').slice(0, 4) || year,
+        rating: d.vote_average ? Number(d.vote_average.toFixed(1)) : null,
+        director,
+        cast,
+        genres: (d.genres || []).map(g => g.name),
+        runtime,
+        poster: d.poster_path ? `https://image.tmdb.org/t/p/w500${d.poster_path}` : null,
+        backdrop: d.backdrop_path ? `https://image.tmdb.org/t/p/original${d.backdrop_path}` : null,
+        background: d.backdrop_path ? `https://image.tmdb.org/t/p/original${d.backdrop_path}` : null,
+        recommendations,
+        trailerUrl,
+        type: mediaType,
       };
-      metaCache.set(cacheKey, data);
-      return data;
+
+      metaCache.set(cacheKey, richData);
+      return richData;
     }
+  } catch (_) {}
 
-    // 3. Fallback to TVMaze
-    const tvUrl = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(cleaned)}`;
-    const tvRes = await axios.get(tvUrl, { timeout: 3500 });
-    const show = tvRes.data?.[0]?.show;
-
-    if (show && show.image?.original) {
-      const data = {
-        name: show.name,
-        poster: show.image.original,
-        backdrop: null,
-        year: show.premiered ? show.premiered.slice(0, 4) : null,
-        rating: show.rating?.average ? String(show.rating.average) : null,
-        genres: show.genres || [],
-        description: show.summary ? show.summary.replace(/<[^>]+>/g, '') : null,
-        trailerUrl: null,
+  // 3. Fallback to Cinemeta
+  try {
+    const cinemetaUrl = `https://v3-cinemeta.strem.io/catalog/movie/top/search=${encodeURIComponent(title)}.json`;
+    const res = await axios.get(cinemetaUrl, { timeout: 4000 });
+    const meta = res.data?.metas?.[0];
+    if (meta && meta.poster) {
+      const richData = {
+        id: meta.id,
+        title: meta.name || title,
+        name: meta.name || title,
+        overview: meta.description || '',
+        description: meta.description || '',
+        year: meta.year || year,
+        rating: meta.imdbRating ? Number(meta.imdbRating) : null,
+        director: Array.isArray(meta.director) ? meta.director.join(', ') : meta.director || null,
+        cast: (meta.cast || []).slice(0, 8).map(name => ({ name, character: 'Cast', photo: null })),
+        genres: meta.genres || [],
+        runtime: meta.runtime,
+        poster: meta.poster,
+        backdrop: meta.background || meta.poster,
+        background: meta.background || meta.poster,
+        recommendations: [],
+        trailerUrl: meta.trailer ? `https://www.youtube.com/watch?v=${meta.trailer}` : null,
+        type: 'movie',
       };
-      metaCache.set(cacheKey, data);
-      return data;
+      metaCache.set(cacheKey, richData);
+      return richData;
     }
-  } catch (_) {
-    // Fail silently, return null
-  }
+  } catch (_) {}
 
   metaCache.set(cacheKey, null);
   return null;
 }
+
+export default {
+  cleanMediaTitle,
+  fetchMediaMetadata,
+};

@@ -15,6 +15,8 @@ import {
 import { FocusableOpacity } from '../components/FocusableOpacity';
 import { MaterialIcons } from '@expo/vector-icons';
 import { setClipboardString } from '../utils/clipboard';
+import { isInWatchlist, toggleWatchlist, addToWatchHistory } from '../utils/storage';
+import { isPlayableTorrent } from '../utils/mediaType';
 import { COLORS } from '../constants';
 import { getTorrentDetail } from '../api/torrentApi';
 import { fetchMediaMetadata } from '../api/metaApi';
@@ -24,6 +26,33 @@ import { useTVFocus, playTVSelectFeedback } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
 
 const isTV = Platform.isTV;
+
+function DetailWatchlistButton({ inWatchlist, onPress, theme }) {
+  const { focused, focusStyle, onFocus, onBlur } = useTVFocus();
+  return (
+    <FocusableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={inWatchlist ? "Remove from watchlist" : "Add to watchlist"}
+      onPress={() => { playTVSelectFeedback(); onPress(); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      style={[
+        styles.actionSecondaryBtn,
+        { backgroundColor: inWatchlist ? 'rgba(245, 158, 11, 0.15)' : theme.card, borderColor: inWatchlist ? '#F59E0B' : theme.border },
+        focused && focusStyle,
+      ]}
+    >
+      <MaterialIcons
+        name={inWatchlist ? "bookmark" : "bookmark-border"}
+        size={20}
+        color={inWatchlist ? "#F59E0B" : theme.text}
+      />
+      <Text style={[styles.actionSecondaryText, { color: inWatchlist ? "#F59E0B" : theme.text }]}>
+        {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
+      </Text>
+    </FocusableOpacity>
+  );
+}
 
 export default function TorrentDetailScreen({ navigation, route }) {
   const { settings } = useAppSettings();
@@ -36,6 +65,19 @@ export default function TorrentDetailScreen({ navigation, route }) {
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [copied, setCopied] = useState(false);
   const [playerModalVisible, setPlayerModalVisible] = useState(false);
+  const [inWatchlist, setInWatchlist] = useState(false);
+
+  const identifier = detail?.id || detail?.infoHash || detail?.title;
+
+  useEffect(() => {
+    isInWatchlist(identifier).then(setInWatchlist);
+  }, [identifier]);
+
+  const handleToggleWatchlist = async () => {
+    const isNow = await toggleWatchlist(detail, metadata || {});
+    setInWatchlist(isNow);
+    Alert.alert('Watchlist', isNow ? 'Added to your Watchlist!' : 'Removed from Watchlist');
+  };
 
   const magnet = detail?.magnet || initialTorrent?.magnet;
   const infoHash = detail?.infoHash || magnet?.match(/btih:([a-fA-F0-9]+)/i)?.[1];
@@ -99,6 +141,7 @@ export default function TorrentDetailScreen({ navigation, route }) {
 
   // Handle in-app stream selection from modal
   const handleSelectInAppEngine = useCallback((engine) => {
+    addToWatchHistory(detail, metadata || {});
     navigation.navigate('Player', {
       torrent: detail,
       magnet,
@@ -215,9 +258,65 @@ export default function TorrentDetailScreen({ navigation, route }) {
           {/* Main Primary Stream Button */}
           <DetailStreamMainButton onPress={handleOpenPlayerModal} />
 
+          {/* Watchlist Bookmark Toggle Button */}
+          <DetailWatchlistButton inWatchlist={inWatchlist} onPress={handleToggleWatchlist} theme={theme} />
+
           {/* Copy Magnet Button with Live Feedback */}
           <DetailCopyMagnetButton copied={copied} onPress={handleCopyMagnet} />
         </View>
+
+        {/* ─── CAST & CHARACTERS ─── */}
+        {metadata?.cast && metadata.cast.length > 0 ? (
+          <View style={[styles.neuBlock, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.sectionHeading, { color: theme.text }]}>Top Cast & Characters</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 4 }}>
+              {metadata.cast.map((actor, idx) => (
+                <View key={idx} style={[styles.castCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+                  {actor.photo ? (
+                    <Image source={{ uri: actor.photo }} style={styles.castPhoto} />
+                  ) : (
+                    <View style={[styles.castPhotoPlaceholder, { backgroundColor: theme.input }]}>
+                      <MaterialIcons name="person" size={24} color={theme.textMuted} />
+                    </View>
+                  )}
+                  <Text style={[styles.castName, { color: theme.text }]} numberOfLines={1}>{actor.name}</Text>
+                  <Text style={[styles.castRole, { color: theme.textMuted }]} numberOfLines={1}>{actor.character}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {/* ─── RECOMMENDATIONS ─── */}
+        {metadata?.recommendations && metadata.recommendations.length > 0 ? (
+          <View style={[styles.neuBlock, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.sectionHeading, { color: theme.text }]}>More Like This</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 4 }}>
+              {metadata.recommendations.map((rec) => (
+                <FocusableOpacity
+                  key={rec.id}
+                  style={[styles.recCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
+                  onPress={() => navigation.navigate('Search', { initialQuery: rec.title })}
+                >
+                  {rec.poster ? (
+                    <Image source={{ uri: rec.poster }} style={styles.recPoster} />
+                  ) : (
+                    <View style={[styles.recPoster, { backgroundColor: theme.input, alignItems: 'center', justifyContent: 'center' }]}>
+                      <MaterialIcons name="local-movies" size={24} color={theme.textMuted} />
+                    </View>
+                  )}
+                  <Text style={[styles.recTitle, { color: theme.text }]} numberOfLines={1}>{rec.title}</Text>
+                  {rec.rating ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                      <MaterialIcons name="star" size={12} color="#F59E0B" />
+                      <Text style={{ fontSize: 11, color: '#F59E0B', fontWeight: '700' }}>{rec.rating}</Text>
+                    </View>
+                  ) : null}
+                </FocusableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* ─── DESCRIPTION (If available) ─── */}
         {(metadata?.description || detail.description) ? (
@@ -264,6 +363,41 @@ export default function TorrentDetailScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  directorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(236, 72, 153, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(236, 72, 153, 0.35)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  directorText: { color: '#EC4899', fontSize: 12, fontWeight: '700' },
+  castCard: { width: 100, padding: 8, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
+  castPhoto: { width: 56, height: 56, borderRadius: 28, marginBottom: 6 },
+  castPhotoPlaceholder: { width: 56, height: 56, borderRadius: 28, marginBottom: 6, alignItems: 'center', justifyContent: 'center' },
+  castName: { fontSize: 11, fontWeight: '700', textAlign: 'center', width: '100%' },
+  castRole: { fontSize: 10, textAlign: 'center', width: '100%', marginTop: 1 },
+  recCard: { width: 110, padding: 6, borderRadius: 10, borderWidth: 1 },
+  recPoster: { width: '100%', height: 140, borderRadius: 8, marginBottom: 4 },
+  recTitle: { fontSize: 11, fontWeight: '700' },
+  actionSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 10,
+  },
+  actionSecondaryText: { fontSize: 13, fontWeight: '700' },
   container: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     flexDirection: 'row',

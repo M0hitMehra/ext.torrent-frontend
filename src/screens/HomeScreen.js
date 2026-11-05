@@ -22,6 +22,7 @@ import { TVNavigationRail } from '../components/TVNavigationRail';
 import { LoadingSpinner, ErrorView, SectionHeader } from '../components/Common';
 import { useFetch, useTVFocus, playTVSelectFeedback } from '../hooks';
 import { getTheme, useAppSettings } from '../utils/settings';
+import { getWatchlist, getWatchHistory, subscribeToStorage } from '../utils/storage';
 
 const isTV = Platform.isTV;
 
@@ -30,6 +31,19 @@ export default function HomeScreen({ navigation }) {
   const theme = getTheme(settings.mode);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [watchlist, setWatchlist] = useState([]);
+  const [watchHistory, setWatchHistory] = useState([]);
+
+  const reloadUserData = useCallback(() => {
+    getWatchlist().then(setWatchlist);
+    getWatchHistory().then(setWatchHistory);
+  }, []);
+
+  useEffect(() => {
+    reloadUserData();
+    const unsub = subscribeToStorage(reloadUserData);
+    return () => unsub();
+  }, [reloadUserData]);
 
   const {
     data: trendingData,
