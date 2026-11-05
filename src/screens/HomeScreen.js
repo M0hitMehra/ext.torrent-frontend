@@ -8,7 +8,7 @@
  *  - TV on-screen keyboard integration
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, FlatList, StyleSheet, Platform, StatusBar, ScrollView,
 } from 'react-native';
